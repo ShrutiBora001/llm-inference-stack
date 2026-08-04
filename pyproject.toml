@@ -1,0 +1,23 @@
+[project]
+name = "lis"
+version = "0.1.0"
+description = "LLM inference stack: fused striped ring attention, vLLM/SGLang serving"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.2", "numpy"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+# Triton ships with torch on Linux/CUDA; absent on macOS. Kernel modules guard
+# their imports so the CPU test suite runs without it.
+gpu = ["triton>=3.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
