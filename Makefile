@@ -23,9 +23,21 @@ deploy:
 docker:
 	docker build -f deploy/Dockerfile -t lis:latest .
 
+# dattn is the frozen upstream finding. Prefer a sibling checkout when present -
+# editable, so edits in either repo are visible immediately. A fresh clone has
+# no sibling, so fall back to installing it from git.
+DATTN_GIT := git+https://github.com/ShrutiBora001/causal-attention-load-imbalance.git@v0.3.0
+
 venv:
 	uv venv --python 3.12 .venv
-	uv pip install --python $(PY) -e ../Distributed_Attention00 -e ".[dev]"
+	@if [ -d ../Distributed_Attention00 ]; then \
+	    echo "-> sibling dattn checkout found, installing editable"; \
+	    uv pip install --python $(PY) -e ../Distributed_Attention00; \
+	else \
+	    echo "-> no sibling checkout, installing dattn from git @v0.3.0"; \
+	    uv pip install --python $(PY) "$(DATTN_GIT)"; \
+	fi
+	uv pip install --python $(PY) -e ".[dev]"
 
 test:
 	$(PY) -m pytest tests/test_rope.py tests/test_lse.py -q
