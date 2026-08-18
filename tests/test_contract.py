@@ -36,6 +36,21 @@ DECODE_KERNEL_REDUCTION = 0.50  # CUDA-graph capture must halve launches
 # an eager PyTorch path while the project still claims a Triton kernel.
 
 
+def test_a_fused_backend_exists_on_gpu():
+    """On CUDA at least one fused path must be available.
+
+    Running the unfused reference on a GPU and reporting the number would be
+    the most expensive way to measure nothing.
+    """
+    from lis.kernels import available_backends
+
+    if not CUDA:
+        pytest.skip("CPU: only the unfused oracle is expected")
+    assert [b for b in available_backends() if b != "unfused"], (
+        "no fused backend on a CUDA device — torch_flash probe failed"
+    )
+
+
 def test_triton_availability_is_reported_honestly():
     """The project must know whether it has Triton, not assume it."""
     from lis.kernels import triton_available
@@ -52,7 +67,7 @@ def test_triton_kernel_actually_runs_not_a_fallback():
     from lis.kernels import flash_attention, last_backend_used
 
     q, k, v = (torch.randn(1, 4, 512, 64, device="cuda", dtype=torch.bfloat16) for _ in range(3))
-    flash_attention(q, k, v, causal=True)
+    flash_attention(q, k, v, causal=True, backend="triton")
     assert last_backend_used() == "triton", (
         f"expected the Triton kernel, got {last_backend_used()!r} — "
         "the fused path silently fell back"
