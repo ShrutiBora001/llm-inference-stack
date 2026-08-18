@@ -1,6 +1,6 @@
 PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
-.PHONY: help venv test contract plan clean
+.PHONY: help venv test contract plan deploy docker clean
 
 help:
 	@echo "Laptop:"
@@ -10,6 +10,18 @@ help:
 	@echo ""
 	@echo "  Most contract checks are GPU-gated and will SKIP here. Skips are"
 	@echo "  reported, never silently passed - see tests/test_contract.py."
+	@echo ""
+	@echo "GPU box:"
+	@echo "  make deploy PORT=.. HOST=.. [VERB=all]   sync, run, pull results back"
+	@echo "  make docker                              build the NGC-based image"
+
+deploy:
+	@test -n "$(PORT)" || { echo "usage: make deploy PORT=16094 HOST=1.2.3.4 [VERB=all]"; exit 1; }
+	@test -n "$(HOST)" || { echo "usage: make deploy PORT=16094 HOST=1.2.3.4 [VERB=all]"; exit 1; }
+	deploy/remote.sh $(PORT) $(HOST) $(or $(VERB),all)
+
+docker:
+	docker build -f deploy/Dockerfile -t lis:latest .
 
 venv:
 	uv venv --python 3.12 .venv
