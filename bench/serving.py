@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,22 +59,32 @@ def build_client(framework: str):
 
 
 def run_one(client, spec: WorkloadSpec, slo: SLO) -> dict:
-    """One (framework, prefix_share) cell."""
-    workload = generate(spec)
-    t0 = time.perf_counter()
-    records: list[RequestRecord] = list(client.send(workload))
-    wall = time.perf_counter() - t0
+    """One (framework, prefix_share) cell.
 
-    summary = summarize(records, wall_seconds=wall, slo=slo)
-    return {
-        **summary.as_dict(),
+    The run duration comes from the records themselves, not from a wall clock
+    around the call: `summarize` measures first-arrival to last-token, which
+    excludes engine startup and teardown. Timing the call instead would fold
+    warmup into throughput and make a slow-loading engine look like a slow one.
+    """
+    workload = generate(spec)
+    records: list[RequestRecord] = list(client.send(workload))
+    summary = summarize(records, slo=slo)
+
+    row = summary.as_dict()
+    # Flatten the percentile dicts: one JSON row per run, one key per number, so
+    # a figure can name exactly what it reads. Nested dicts would force every
+    # consumer to know the shape.
+    for name in ("ttft_ms", "tpot_ms"):
+        for pct, value in row.pop(name).items():
+            row[f"{name.split('_')[0]}_{pct}_ms"] = value
+
+    row.update({
         "framework": client.name,
         "prefix_share_requested": spec.prefix_share,
         "prefix_share_realized": workload.realized_prefix_share(),
         "workload_source": workload.source,
-        "n_requests": len(records),
-        "wall_seconds": wall,
-    }
+    })
+    return row
 
 
 def specs_for(args) -> list[WorkloadSpec]:
@@ -142,7 +151,8 @@ def main() -> int:
                 print(f"{framework:20s} prefix_share={row['prefix_share_realized']:.2f}  "
                       f"goodput={row['goodput_rps']:.2f} req/s  "
                       f"throughput={row['throughput_rps']:.2f}  "
-                      f"TTFT p99={row['ttft_p99_ms']:.0f} ms  "
+                      f"TTFT p99={row.get('ttft_p99_ms', float('nan')):.0f} ms  "
+                      f"cache {row['prefix_cache_hit_rate']:.0%}  "
                       f"SLO {row['slo_attainment']:.0%}")
 
     print(f"\nappended {len(rows)} rows to {args.out}")
