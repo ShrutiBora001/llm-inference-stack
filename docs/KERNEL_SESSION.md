@@ -20,13 +20,38 @@ is Phase 2 and needs a *decided* kernel first.
 |---|---|
 | GPU | **1 × A100** (SXM or PCIe — irrelevant here, there is no interconnect traffic) |
 | Fallback | 1 × A10 / L4 / 4090 is fine for correctness; MFU is **not** comparable to the upstream A100 numbers |
-| Disk | **64 GB** — the NGC image is ~25 GB and **disk cannot be resized after creation** |
+| Disk | **64 GB** — instance filesystem, *not* VRAM. The NGC image is ~25 GB and **disk cannot be resized after creation** |
+| VRAM | **40 GB is enough.** 80 GB buys nothing here — see below |
 | Image | PyTorch NGC |
 | Cost | ~$1.00–1.50/hr |
 
 Ampere or newer (sm_80+) is required for bf16 tensor cores. Step 1 of the
 validator warns if you are below that, because every MFU number would be
 meaningless.
+
+### 40 GB vs 80 GB
+
+40 GB. The limit is not the fused kernel — at S=32768 with 32 heads and
+head_dim 128 in bf16, Q/K/V/out together are about 1.1 GiB, which fits
+anywhere. The limit is the *unfused oracle*, whose whole purpose is to
+materialize the `[H, S, S]` fp32 score tile:
+
+| seq | score tile | with intermediates | 40 GB | 80 GB |
+|---|---|---|---|---|
+| 4096 | 2.0 GiB | ~5 GiB | ok | ok |
+| 8192 | 8.0 GiB | ~20 GiB | ok | ok |
+| 16384 | 32.0 GiB | ~80 GiB | OOM | OOM |
+| 32768 | 128.0 GiB | ~320 GiB | OOM | OOM |
+
+Unfused drops out at 16384 on **both** cards, so the extra VRAM buys no
+additional comparison points. It OOMs by design — that boundary *is* the memory
+argument this project makes, and the sweep records it as a result rather than a
+failure.
+
+The consequence for reading the output: **triton is only compared against
+unfused at sequence lengths where both completed.** Comparing each backend's
+best row would pit triton@16384 against unfused@4096 and report a "speedup"
+that is mostly the shape difference.
 
 **Do not rent 4 GPUs for this.** If a listing bundles four, the session still
 works — `preflight 1` accepts it — but you are paying 4x for three idle cards.

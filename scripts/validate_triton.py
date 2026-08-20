@@ -294,12 +294,36 @@ def check_mfu(seqs: list[int]) -> None:
     RESULTS["triton_best_mfu"] = best.mfu
     RESULTS["gate"] = MFU_GATE
 
-    others = {r.backend: max(x.mfu for x in rows if x.backend == r.backend)
-              for r in rows if r.backend != "triton"}
+    # Compare at matched sequence lengths only. The unfused backend OOMs out of
+    # the sweep at long sequences (its score tile is 34 GiB at S=16384), so
+    # comparing each backend's best row would silently pit triton@16384 against
+    # unfused@4096 and report a "speedup" that is mostly the shape difference.
     print()
-    for name, mfu in others.items():
-        speedup = f" ({best.mfu / mfu:.2f}x)" if mfu > 0 else ""
-        print(f"  triton {best.mfu:.1%} vs {name} {mfu:.1%}{speedup}")
+    by_seq: dict[int, dict[str, float]] = {}
+    for r in rows:
+        by_seq.setdefault(r.seq, {})[r.backend] = r.mfu
+
+    comparisons: dict[str, dict] = {}
+    for name in ("torch_flash", "unfused"):
+        shared = sorted(s for s, m in by_seq.items() if name in m and "triton" in m)
+        if not shared:
+            warn(f"no sequence length where both triton and {name} completed; "
+                 "no like-for-like comparison is possible")
+            continue
+        at = max(shared)
+        t, o = by_seq[at]["triton"], by_seq[at][name]
+        ratio = t / o if o > 0 else float("inf")
+        comparisons[name] = {"seq": at, "triton_mfu": t, "other_mfu": o, "ratio": ratio}
+        print(f"  @ seq={at:<7} triton {t:>6.1%}  vs  {name} {o:>6.1%}  ({ratio:.2f}x)")
+
+    dropped = {n: sorted(set(seqs) - {s for s in by_seq if n in by_seq[s]})
+               for n in ("unfused", "torch_flash", "triton")}
+    for name, missing in dropped.items():
+        if missing:
+            print(f"  {DIM}{name} did not complete at {missing} (OOM or unsupported){OFF}")
+
+    RESULTS["comparisons"] = comparisons
+    RESULTS["incomplete"] = {k: v for k, v in dropped.items() if v}
 
     if best.mfu >= MFU_GATE:
         ok(f"triton {best.mfu:.1%} >= gate {MFU_GATE:.0%} @ seq={best.seq}")

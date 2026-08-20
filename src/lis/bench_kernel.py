@@ -190,6 +190,14 @@ def sweep(
 
     Backends that cannot express a case hand off rather than failing the sweep;
     a missing row is recorded by its absence, not by a crash.
+
+    OOM is expected and is a *result*, not a defect: the unfused backend
+    materializes an [H, S, S] fp32 score tile, which is 34 GiB at S=16384 before
+    intermediates, so it drops out of the sweep well before the fused paths do.
+    That boundary is the memory argument this project makes. The allocator is
+    drained afterwards -- otherwise the failed allocation stays cached and the
+    *next* measurement OOMs spuriously, which would look like a much lower limit
+    than the hardware actually has.
     """
     chosen = backends or tuple(available_backends())
     out = []
@@ -197,6 +205,12 @@ def sweep(
         for seq in seqs:
             try:
                 out.append(benchmark(seq=seq, backend=backend, **kw))
+            except torch.cuda.OutOfMemoryError as e:  # pragma: no cover
+                torch.cuda.empty_cache()
+                print(f"  OOM  {backend} seq={seq} (memory boundary, not a failure)")
+                del e
             except (RuntimeError, ValueError) as e:  # pragma: no cover
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 print(f"  skip {backend} seq={seq}: {e}")
     return out
