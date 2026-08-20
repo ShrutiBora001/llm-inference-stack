@@ -145,19 +145,28 @@ def decode_launch_counts(
     x = torch.randn(1, 1, d_model, device="cuda")
     positions = torch.arange(1, device="cuda")
 
+    # Host-side launch API calls, NOT device kernel executions. This distinction
+    # is the whole measurement: a graph replay runs exactly the same kernels on
+    # the device -- capture does not remove work, it removes the per-kernel
+    # submission from the CPU. Counting device kernels therefore reports no
+    # change by construction, which is what an earlier version of this function
+    # did, and it made a working capture look like a broken one.
+    LAUNCH_APIS = (
+        "cudaLaunchKernel",        # one per kernel, eager
+        "cudaLaunchKernelExC",     # newer runtimes
+        "cudaGraphLaunch",         # one per replay, regardless of kernel count
+    )
+
     def count_launches(fn) -> int:
         from torch.profiler import ProfilerActivity, profile
 
         for _ in range(3):  # warm up allocator and any lazy init
             fn()
         torch.cuda.synchronize()
-        with profile(activities=[ProfilerActivity.CUDA]) as prof:
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
             fn()
             torch.cuda.synchronize()
-        return sum(
-            1 for e in prof.events()
-            if getattr(e, "device_type", None) is not None and e.self_device_time_total > 0
-        )
+        return sum(1 for e in prof.events() if e.name in LAUNCH_APIS)
 
     eager = count_launches(lambda: module(x, positions))
 

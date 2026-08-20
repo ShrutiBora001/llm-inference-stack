@@ -327,7 +327,24 @@ def check_mfu(seqs: list[int]) -> None:
 
     if best.mfu >= MFU_GATE:
         ok(f"triton {best.mfu:.1%} >= gate {MFU_GATE:.0%} @ seq={best.seq}")
-        RESULTS["decision"] = "triton clears the gate; flip PREFERENCE"
+        # Clearing the gate proves the kernel is real, not that it should be the
+        # default. Those are separate questions, and an earlier version of this
+        # script conflated them -- it recommended flipping PREFERENCE on the
+        # gate alone, which would have demoted a faster kernel for a slower one.
+        tf = comparisons.get("torch_flash")
+        if tf and tf["ratio"] < 1.0:
+            RESULTS["decision"] = (
+                f"triton clears the gate at {best.mfu:.1%} and is validated, but "
+                f"torch_flash is faster at every matched shape "
+                f"({tf['other_mfu']:.1%} vs {tf['triton_mfu']:.1%} @ seq={tf['seq']}). "
+                "KEEP PREFERENCE as is; torch_flash stays the default fused path."
+            )
+        else:
+            RESULTS["decision"] = (
+                f"triton clears the gate at {best.mfu:.1%} and is at least as "
+                "fast as torch_flash; flipping PREFERENCE is justified."
+            )
+        print(f"  {BOLD}decision:{OFF} {RESULTS['decision']}")
     else:
         warn(f"triton {best.mfu:.1%} < gate {MFU_GATE:.0%}. This is a valid "
              "measured outcome, not a script failure.")

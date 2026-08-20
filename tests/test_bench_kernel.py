@@ -62,11 +62,22 @@ def test_unfused_traffic_dwarfs_fused():
     assert unfused > 20 * fused
 
 
-def test_benchmark_runs_on_cpu_and_reports_the_backend_used():
-    """Timings are meaningless here; the point is that the harness works end to
-    end before a GPU is rented."""
+def test_benchmark_runs_end_to_end_and_reports_the_backend_used():
+    """The harness works before a GPU is rented.
+
+    Which backend answers is a property of the machine, not of the harness: on
+    a laptop only `unfused` exists, on a GPU the dispatcher prefers a fused
+    path. Asserting "unfused" unconditionally encoded the laptop as the only
+    world and failed the moment it ran somewhere real.
+    """
+    import torch
+
+    from lis.kernels import available_backends
+
     m = benchmark(seq=256, heads=4, head_dim=32, iters=2, warmup=1)
-    assert m.backend == "unfused"
+    assert m.backend == available_backends()[0]
+    if not torch.cuda.is_available():
+        assert m.backend == "unfused"
     assert m.tflops > 0
     assert m.elements == elements_computed(256, 256, True, 128)
     assert m.arithmetic_intensity > 0
@@ -78,7 +89,18 @@ def test_measurement_serializes_for_results_files():
     json.dumps(benchmark(seq=128, heads=2, head_dim=32, iters=1, warmup=0).as_dict())
 
 
-def test_measure_mfu_is_zero_without_a_peak_figure():
-    """The CPU profile carries no peak TFLOP/s, so MFU is undefined rather than
-    invented. The contract gate is GPU-gated for exactly this reason."""
-    assert measure_mfu(seq=128, heads=2, head_dim=32) == 0.0
+def test_mfu_is_undefined_without_a_peak_figure_and_real_with_one():
+    """MFU is a fraction of a peak, so with no peak it must be 0, not invented.
+
+    The CPU profile carries no peak TFLOP/s. A GPU profile does, and then the
+    number has to be a plausible fraction rather than zero -- asserting 0.0
+    unconditionally would have passed forever on a laptop while silently
+    accepting a broken peak lookup on hardware.
+    """
+    import torch
+
+    mfu = measure_mfu(seq=128, heads=2, head_dim=32)
+    if torch.cuda.is_available():
+        assert 0.0 < mfu < 1.0, f"implausible MFU {mfu}"
+    else:
+        assert mfu == 0.0

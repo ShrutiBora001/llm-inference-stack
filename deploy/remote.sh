@@ -14,13 +14,27 @@ VERB="${3:-all}"
 REMOTE_DIR="${REMOTE_DIR:-/workspace/lis}"
 LOCAL_RESULTS="${LOCAL_RESULTS:-results}"
 
-SSH="ssh -p $PORT -o StrictHostKeyChecking=accept-new root@$HOST"
+# Name the key explicitly rather than relying on ssh-agent state. A key whose
+# filename is not one of ssh's defaults (id_rsa, id_ed25519) is invisible to a
+# bare `ssh` when the agent is empty, which reads as "provider rejected my key"
+# and sends you looking in the wrong place.
+#
+#   SSH_KEY=~/.ssh/id_ed25519_github deploy/remote.sh 40778 88.207.84.248 kernel
+SSH_KEY="${SSH_KEY:-}"
+KEY_OPT=""
+if [ -n "$SSH_KEY" ]; then
+  [ -f "$SSH_KEY" ] || { echo "FATAL: SSH_KEY=$SSH_KEY does not exist"; exit 1; }
+  KEY_OPT="-i $SSH_KEY -o IdentitiesOnly=yes"
+fi
+
+SSH_BASE="ssh -p $PORT $KEY_OPT -o StrictHostKeyChecking=accept-new"
+SSH="$SSH_BASE root@$HOST"
 here="$(cd "$(dirname "$0")/.." && pwd)"
 
 say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
 say "sync -> $HOST:$REMOTE_DIR"
-rsync -az --delete -e "ssh -p $PORT" \
+rsync -az --delete -e "$SSH_BASE" \
   --exclude .venv --exclude .git --exclude results --exclude __pycache__ \
   --exclude '*.nsys-rep' \
   "$here/" "root@$HOST:$REMOTE_DIR/"
@@ -29,7 +43,10 @@ rsync -az --delete -e "ssh -p $PORT" \
 # access and no credentials.
 if [ -d "$here/../Distributed_Attention00" ]; then
   say "vendor dattn"
-  rsync -az -e "ssh -p $PORT" \
+  # rsync will not create intermediate directories, and --mkpath is too new to
+  # rely on (macOS ships an rsync that lacks it).
+  $SSH "mkdir -p $REMOTE_DIR/vendor/dattn"
+  rsync -az -e "$SSH_BASE" \
     --exclude .venv --exclude .git --exclude results --exclude __pycache__ \
     "$here/../Distributed_Attention00/" "root@$HOST:$REMOTE_DIR/vendor/dattn/"
 fi
@@ -45,7 +62,7 @@ $SSH "cd $REMOTE_DIR && LIS_WORLD_SIZE=${LIS_WORLD_SIZE:-4} \
 
 say "pull results"
 mkdir -p "$here/$LOCAL_RESULTS"
-rsync -az -e "ssh -p $PORT" "root@$HOST:$REMOTE_DIR/results/" "$here/$LOCAL_RESULTS/"
+rsync -az -e "$SSH_BASE" "root@$HOST:$REMOTE_DIR/results/" "$here/$LOCAL_RESULTS/"
 echo "  -> $here/$LOCAL_RESULTS"
 
 say "DONE. Destroy the instance now -- rented storage vanishes when you stop paying."

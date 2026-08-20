@@ -32,12 +32,42 @@ B, H, S, DH = 2, 4, 64, 32
 SCALE = 1.0 / math.sqrt(DH)
 BACKENDS = available_backends()
 FUSED = [b for b in BACKENDS if b != "unfused"]
+CUDA = torch.cuda.is_available()
+
+# Tolerances by dtype. fp32 against an fp32 reference is an near-identity, so it
+# is held tight; bf16 carries ~8 mantissa bits and cannot be.
+TOL = {torch.float32: 1e-4, torch.bfloat16: 2e-2}
+LSE_TOL = {torch.float32: 1e-3, torch.bfloat16: 2e-2}
 
 
-def make_qkv(sq=S, sk=S, seed=0):
+def placement(backend: str | None = None):
+    """Where a backend's inputs must live, and in what dtype.
+
+    Not cosmetic. `torch_flash` calls
+    `aten._scaled_dot_product_flash_attention`, which accepts only fp16/bf16 and
+    only on CUDA; the Triton kernel needs real device pointers. Handing either
+    of them a CPU fp32 tensor fails with a dispatcher error or "Pointer argument
+    cannot be accessed from Triton (cpu tensor?)".
+
+    That failure cannot be caught on a laptop, because only `unfused` exists
+    there and it happily accepts anything. So these tests passed locally for
+    every backend that was never actually running -- the same trap as building
+    CPU tensors in an NCCL worker. Device and dtype are therefore derived from
+    the backend under test rather than assumed.
+    """
+    fused = bool(FUSED) if backend is None else backend != "unfused"
+    if fused and CUDA:
+        return torch.device("cuda"), torch.bfloat16
+    return torch.device("cuda" if CUDA else "cpu"), torch.float32
+
+
+def make_qkv(sq=S, sk=S, seed=0, backend: str | None = None):
+    """q, k, v placed where `backend` can actually read them."""
+    device, dtype = placement(backend)
     set_seed(seed)
-    return (torch.randn(B, H, sq, DH), torch.randn(B, H, sk, DH),
-            torch.randn(B, H, sk, DH))
+    return tuple(
+        torch.randn(B, H, n, DH, device=device, dtype=dtype) for n in (sq, sk, sk)
+    )
 
 
 # ------------------------------------------------------------------ dispatch
@@ -50,26 +80,26 @@ def test_unfused_is_always_available():
 
 
 def test_dispatch_reports_which_backend_ran():
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend=None)
     flash_attention(q, k, v, causal=True)
     assert last_backend_used() in BACKENDS
 
 
 def test_dispatch_prefers_fused_when_present():
     """On a GPU the default must not quietly pick the slow path."""
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend=None)
     flash_attention(q, k, v, causal=True)
     assert last_backend_used() == BACKENDS[0]
 
 
 def test_forcing_a_backend_is_honoured():
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend="unfused")
     flash_attention(q, k, v, causal=True, backend="unfused")
     assert last_backend_used() == "unfused"
 
 
 def test_unknown_backend_rejected():
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend="unfused")
     with pytest.raises(ValueError, match="unknown backend"):
         flash_attention(q, k, v, backend="cutlass")
 
@@ -80,7 +110,7 @@ def test_unavailable_backend_rejected_rather_than_silently_downgraded():
     missing = [b for b in PREFERENCE if b not in BACKENDS]
     if not missing:
         pytest.skip("every backend is available here")
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend="unfused")
     with pytest.raises(RuntimeError, match="not available"):
         flash_attention(q, k, v, backend=missing[0])
 
@@ -103,10 +133,11 @@ def test_backend_matches_reference(backend, causal):
     The reference is itself pinned to PyTorch's SDPA upstream, so the trust
     root is PyTorch rather than this codebase.
     """
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend=backend)
     got = flash_attention(q, k, v, causal=causal, scale=SCALE, backend=backend)
     want = attention_reference(q, k, v, causal=causal, scale=SCALE)
-    assert max_abs_diff(normalize(got), want) < 1e-4, f"{backend} causal={causal}"
+    tol = TOL[q.dtype]
+    assert max_abs_diff(normalize(got), want) < tol, f"{backend} causal={causal}"
 
 
 @pytest.mark.skipif(len(FUSED) == 0, reason="no fused backend here — GPU-gated")
@@ -118,11 +149,13 @@ def test_fused_agrees_with_unfused(backend, causal):
     This is the test that makes 'Phase 2 works with either kernel' true rather
     than hoped.
     """
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend=backend)
     a = flash_attention(q, k, v, causal=causal, scale=SCALE, backend=backend)
     b = flash_attention(q, k, v, causal=causal, scale=SCALE, backend="unfused")
-    assert max_abs_diff(normalize(a), normalize(b)) < 1e-4
-    assert max_abs_diff(a.lse, b.lse) < 1e-3, "lse disagrees — merging would be wrong"
+    assert max_abs_diff(normalize(a), normalize(b)) < TOL[q.dtype]
+    assert max_abs_diff(a.lse, b.lse) < LSE_TOL[q.dtype], (
+        "lse disagrees — merging would be wrong"
+    )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -133,13 +166,13 @@ def test_lse_enables_correct_chunk_merging(backend):
     backend's lse convention differed (log2 instead of ln, say) this fails
     while the outputs alone would still look right.
     """
-    q, k, v = make_qkv()
+    q, k, v = make_qkv(backend=backend)
     want = attention_reference(q, k, v, scale=SCALE)
     got = merge(
         flash_attention(q, k[:, :, :32], v[:, :, :32], scale=SCALE, backend=backend),
         flash_attention(q, k[:, :, 32:], v[:, :, 32:], scale=SCALE, backend=backend),
     )
-    assert max_abs_diff(normalize(got), want) < 1e-4
+    assert max_abs_diff(normalize(got), want) < TOL[q.dtype]
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -149,11 +182,11 @@ def test_past_block_needs_no_mask(backend):
     This is the common case in the ring: most (q chunk, k chunk) pairs are
     either wholly past or wholly future, and only the diagonal is triangular.
     """
-    q, k, v = make_qkv(sq=32, sk=32)
+    q, k, v = make_qkv(sq=32, sk=32, backend=backend)
     got = flash_attention(q, k, v, causal=True, scale=SCALE,
                           q_offset=64, k_offset=0, backend=backend)
     want = attention_reference(q, k, v, causal=False, scale=SCALE)
-    assert max_abs_diff(normalize(got), want) < 1e-4
+    assert max_abs_diff(normalize(got), want) < TOL[q.dtype]
 
 
 def test_offset_causal_block_matches_reference():
@@ -162,8 +195,11 @@ def test_offset_causal_block_matches_reference():
     Mirrors what a striped device does with a remote KV chunk, and is where a
     wrong offset would silently produce a wrong mask.
     """
+    device, dtype = placement("unfused")
     set_seed(5)
-    q_full, k_full, v_full = (torch.randn(B, H, 128, DH) for _ in range(3))
+    q_full, k_full, v_full = (
+        torch.randn(B, H, 128, DH, device=device, dtype=dtype) for _ in range(3)
+    )
     want = attention_reference(q_full, k_full, v_full, causal=True, scale=SCALE)
 
     got = flash_attention(
@@ -185,7 +221,7 @@ def test_future_block_is_refused_or_empty():
     The ring skips these; a backend reached with one anyway must not silently
     return a plausible-looking answer.
     """
-    q, k, v = make_qkv(sq=32, sk=32)
+    q, k, v = make_qkv(sq=32, sk=32, backend="unfused")
     got = flash_attention(q, k, v, causal=True, scale=SCALE,
                           q_offset=0, k_offset=64, backend="unfused")
     assert torch.isneginf(got.lse).all()
