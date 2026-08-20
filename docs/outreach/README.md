@@ -27,7 +27,18 @@ study proceeds either way.
 
 ## Notes on the drafts
 
-Both lead with measurements rather than an offer to help, and both state the
-~3% MFU caveat up front. Volunteering the weakness is what makes the rest
-credible — a maintainer will compute it in thirty seconds anyway, and finding it
-themselves after reading the claims is much worse.
+Both lead with measurements rather than an offer to help.
+
+`21788` volunteers the caveat that cuts against its own numbers, and Phase 1
+changed what that caveat is. It used to be "my kernel is unfused at ~3% MFU, so
+absolute numbers are not competitive" — obsolete now that a fused path measures
+60.4% MFU. The replacement is sharper and more useful: a 20x faster kernel
+leaves communication unchanged, moving it from **1.1% of runtime to ~18%**, so
+the 1.69-1.73x layout speedup will compress once the kernel is fast. That has
+not been re-measured at 4x yet, and the draft says so.
+
+Volunteering the weakness is what makes the rest credible — a maintainer
+computes it in thirty seconds anyway, and finding it themselves after reading
+the claims is much worse. It also happens to be the strongest argument in the
+message: with a fast kernel, overlap quality starts to matter, which favours
+ring over all-gather rather than undermining it.

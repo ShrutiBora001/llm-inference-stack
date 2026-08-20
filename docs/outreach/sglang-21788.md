@@ -15,12 +15,21 @@ Measured on 4× A100 SXM4 40GB / NVLink:
   S=32768, 1.73× at S=131072** — 99.1% of the `2 − 1/P` critical-path bound.
 - **1,048,576-token prefill** at 32.3 GiB/device, where an all-gather baseline
   needs ~38 GiB and OOMs.
-- Communication is 1.1% of runtime with double-buffered NCCL P2P overlap.
+- Communication was 1.1% of runtime with double-buffered NCCL P2P overlap.
 - Verified against a single-process reference at P=2/4/8, `<1e-5`.
 
-Caveat up front: my attention kernel is unfused (~3% MFU), so the absolute
-numbers are not competitive — the speedups are ratios between two layouts of the
-same kernel, which is what the scheduling claim rests on.
+One caveat I'd rather raise myself, because it cuts against my own numbers.
+Those measurements used an unfused attention kernel (~3% MFU). I've since
+validated a fused path on 1× A100 — 60.4% MFU at S=32768 — which makes compute
+roughly 20× faster and leaves communication unchanged. That moves comm from
+**1.1% of runtime to an estimated ~18%**, so the layout speedup measured above
+will compress once the kernel is fast. I have not yet re-measured the ratio at
+4× with the fused kernel; that is the next thing I plan to run.
+
+I mention it because it seems relevant to the roadmap decision rather than only
+to my numbers: with a fast kernel, overlap quality starts to matter much more
+than it does today, which is an argument for ring over all-gather rather than
+against it.
 
 Two questions:
 
