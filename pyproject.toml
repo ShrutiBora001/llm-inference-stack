@@ -6,7 +6,8 @@ requires-python = ">=3.10"
 dependencies = ["torch>=2.2", "numpy"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+  "matplotlib>=3.8","pytest>=8.0"]
 # Triton ships with torch on Linux/CUDA; absent on macOS. Kernel modules guard
 # their imports so the CPU test suite runs without it.
 gpu = ["triton>=3.0"]

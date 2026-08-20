@@ -1,12 +1,15 @@
 PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
-.PHONY: help venv test contract plan deploy docker clean
+.PHONY: help venv test contract report bench-kernel bench-serving deploy docker clean
 
 help:
 	@echo "Laptop:"
 	@echo "  make venv      create .venv, install dattn + this package"
 	@echo "  make test      correctness suite (no GPU required)"
 	@echo "  make contract  anti-decoration suite - fails if a technology is decorative"
+	@echo "  make report    rebuild every figure + the dashboard from results/*.jsonl"
+	@echo "  make bench-kernel    MFU / roofline sweep -> results/kernel.jsonl"
+	@echo "  make bench-serving   prefix-share sweep (needs an engine; --dry-run here)"
 	@echo ""
 	@echo "  Most contract checks are GPU-gated and will SKIP here. Skips are"
 	@echo "  reported, never silently passed - see tests/test_contract.py."
@@ -40,12 +43,29 @@ venv:
 	uv pip install --python $(PY) -e ".[dev]"
 
 test:
-	$(PY) -m pytest tests/test_rope.py tests/test_lse.py -q
+	$(PY) -m pytest tests -q
 
 # -rs prints the reason for every skip, so a green CPU run cannot be mistaken
 # for a validated stack.
 contract:
 	$(PY) -m pytest tests/test_contract.py -q -rs
+
+# Every figure and every dashboard number regenerates from results/*.jsonl.
+# Deleting the PNGs first is the point: if a number was ever typed rather than
+# measured, it does not survive the rebuild.
+report:
+	rm -rf report/figures
+	$(PY) report/make_figures.py
+	$(PY) report/make_dashboard.py
+
+bench-kernel:
+	$(PY) bench/kernel.py --out results/kernel.jsonl
+
+# Without a serving engine this refuses to produce numbers. The dry run
+# exercises workload generation and the reduction path, which is the half that
+# can be checked without hardware.
+bench-serving:
+	$(PY) bench/serving.py --dry-run --sweep-prefix-share
 
 clean:
 	rm -rf .pytest_cache **/__pycache__ src/**/__pycache__
