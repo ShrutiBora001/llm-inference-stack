@@ -22,6 +22,32 @@ PRs in flight — that is where people actually are.
   study (§2.5), which needs nobody's approval
 - **Silence for ~2 weeks** → same as above
 
+### A correction to the plan's scoping
+
+The plan called the serving study "ungated — start here" while naming
+`sglang-zigzag` and `sglang-contiguous` as two of its three configurations.
+Both require SGLang prefill CP **on CUDA**, which does not exist upstream — the
+#22223 implementation is Ascend-NPU only. So those two are gated on the port,
+not ungated.
+
+What is genuinely ungated is the more valuable half:
+
+| Measurement | Needs CP? |
+|---|---|
+| Prefix-share crossover, SGLang vs vLLM | no |
+| Prefix-cache hit rate vs `prefix_share` | no |
+| TTFT / goodput vs concurrency | no |
+| Zigzag vs contiguous CP layout | **yes** |
+
+The crossover was always the headline finding (plan §8.1, S4) and it is a
+property of RadixAttention versus vLLM's prefix caching, not of context
+parallelism. The study proceeds; only the layout comparison waits.
+
+`lis.serving.sglang_backend.make_client` enforces this in code rather than
+leaving it in a document: the CP configurations refuse with the reason, because
+constructing a non-CP engine under a CP name would write a results file
+describing a system that was never run.
+
 Per the plan, **do not start the port before this is answered.** The benchmark
 study proceeds either way.
 

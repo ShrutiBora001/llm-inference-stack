@@ -35,8 +35,19 @@ import os
 import time
 from dataclasses import dataclass, field
 
-from ..metrics import RequestRecord
 from ..workload import Request, Workload
+from .client import (
+    TokenStream,
+    cached_tokens_from_usage,
+    pace_arrivals,
+    records_from_streams,
+)
+
+__all__ = [
+    "TokenStream", "VLLMClient", "available", "cached_tokens_from_usage",
+    "make_client", "pace_arrivals", "records_from_streams",
+    "request_intervals", "sample_block_table",
+]
 
 # Llama-3.2-1B: small weights mean KV dominates device memory sooner, so a
 # small model reaches *longer* context on the same hardware -- roughly 1M tokens
@@ -64,70 +75,10 @@ def _require_vllm():
         )
 
 
-# --------------------------------------------------------------- timing core
-# Pure, and therefore testable without an engine.
-
-
-@dataclass
-class TokenStream:
-    """One request's observed timeline, as the engine reported it.
-
-    Timestamps are absolute seconds from a common clock. `first_token_s` is when
-    the *first* token became visible, which is the only thing a user
-    experiences as "did it hang".
-    """
-
-    arrival_s: float
-    first_token_s: float
-    last_token_s: float
-    prompt_tokens: int
-    output_tokens: int
-    cached_prefix_tokens: int = 0
-
-
-def pace_arrivals(requests: list[Request], t0: float) -> list[float]:
-    """Absolute send times from the workload's arrival offsets.
-
-    The offsets are a Poisson process generated once and reused across every
-    framework, so all configurations see the *same* arrival pattern. Generating
-    arrivals per-framework would make throughput differences partly an artifact
-    of a different random trace.
-    """
-    return [t0 + r.arrival_offset_s for r in requests]
-
-
-def records_from_streams(streams: list[TokenStream]) -> list[RequestRecord]:
-    """Convert observed timelines into the metric layer's record type.
-
-    Validation lives in `RequestRecord.__post_init__` (ordered timeline, at
-    least one token), so a malformed stream fails here rather than silently
-    producing a negative TTFT that averages into a plausible number.
-    """
-    return [
-        RequestRecord(
-            arrival_s=s.arrival_s,
-            first_token_s=s.first_token_s,
-            last_token_s=s.last_token_s,
-            prompt_tokens=s.prompt_tokens,
-            output_tokens=s.output_tokens,
-            cached_prefix_tokens=s.cached_prefix_tokens,
-        )
-        for s in streams
-    ]
-
-
-def cached_tokens_from_usage(usage: dict | None, prompt_tokens: int) -> int:
-    """Prefix-cache hits, read from the engine rather than inferred.
-
-    vLLM reports `num_cached_tokens` per request when prefix caching is on.
-    Inferring it from the workload's *requested* prefix share instead would make
-    the cache-hit metric a restatement of the input, and it would report a
-    perfect hit rate even with caching disabled.
-    """
-    if not usage:
-        return 0
-    cached = usage.get("num_cached_tokens", 0) or 0
-    return min(int(cached), prompt_tokens)
+# Timing helpers are shared with the SGLang binding and live in `client.py`,
+# so a TTFT is computed identically for both engines. Computing it even slightly
+# differently per framework would invalidate the comparison in a way no test
+# catches, because each side would be internally consistent.
 
 
 # --------------------------------------------------------------- the adapter

@@ -57,6 +57,26 @@ def test_missing_engine_refuses_rather_than_simulating(framework):
         serving.build_client(framework)
 
 
+@pytest.mark.parametrize("framework", serving.GATED_FRAMEWORKS)
+def test_gated_frameworks_explain_the_gate_not_a_missing_install(framework):
+    """These are blocked upstream, not locally. Reporting them as "not
+    installed" would send someone to install SGLang and find the config still
+    absent, with no explanation of why."""
+    with pytest.raises(NotImplementedError, match="Ascend"):
+        serving.build_client(framework)
+
+
+def test_the_default_frameworks_are_all_runnable():
+    """The default must not be a configuration that cannot run."""
+    import argparse
+
+    p = argparse.ArgumentParser()
+    p.add_argument("--frameworks", nargs="+", default=["sglang", "vllm"],
+                   choices=serving.FRAMEWORKS + serving.GATED_FRAMEWORKS)
+    for f in p.parse_args([]).frameworks:
+        assert f in serving.FRAMEWORKS, f"{f} is gated but is a default"
+
+
 def test_unknown_framework_is_rejected():
     with pytest.raises(ValueError, match="unknown framework"):
         serving.build_client("tensorrt-llm")

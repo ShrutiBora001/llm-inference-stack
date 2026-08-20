@@ -29,7 +29,21 @@ sys.path.insert(0, str(ROOT / "src"))
 from lis.metrics import SLO, RequestRecord, summarize  # noqa: E402
 from lis.workload import WorkloadSpec, generate, sweep  # noqa: E402
 
-FRAMEWORKS = ("sglang-zigzag", "sglang-contiguous", "vllm-dcp")
+# Runnable today. The crossover finding -- where SGLang's RadixAttention
+# overtakes vLLM as prefixes become more shared -- needs no context parallelism
+# at all, so it does not wait on the CUDA port.
+FRAMEWORKS = (
+    "sglang",           # RadixAttention on
+    "sglang-no-cache",  # the A/B that isolates what RadixAttention contributes
+    "vllm",             # vLLM's own prefix caching
+    "vllm-dcp",         # vLLM's shipped CP -- decode-only, scope it honestly
+)
+
+# Blocked on the SGLang CUDA port, which is gated on a maintainer reply.
+# Listed so `--frameworks` accepts them and the refusal explains itself, rather
+# than reporting them as a typo.
+GATED_FRAMEWORKS = ("sglang-zigzag", "sglang-contiguous")
+
 PREFIX_SHARES = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0)
 
 
@@ -40,8 +54,11 @@ def build_client(framework: str):
     number produced without a serving engine is not a measurement, and the
     distinction is invisible once it reaches a plot.
     """
-    if framework not in FRAMEWORKS:
-        raise ValueError(f"unknown framework {framework!r}; expected one of {FRAMEWORKS}")
+    if framework not in FRAMEWORKS + GATED_FRAMEWORKS:
+        raise ValueError(
+            f"unknown framework {framework!r}; expected one of "
+            f"{FRAMEWORKS + GATED_FRAMEWORKS}"
+        )
 
     module = "sglang_backend" if framework.startswith("sglang") else "vllm_backend"
     try:
@@ -113,7 +130,9 @@ def dry_run(args) -> int:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--frameworks", nargs="+", default=["sglang-zigzag"], choices=FRAMEWORKS)
+    p.add_argument("--frameworks", nargs="+", default=["sglang", "vllm"],
+                   choices=FRAMEWORKS + GATED_FRAMEWORKS,
+                   help="default runs the ungated crossover comparison")
     p.add_argument("--sweep-prefix-share", action="store_true")
     p.add_argument("--prefix-shares", nargs="+", type=float, default=list(PREFIX_SHARES),
                    dest="prefix_shares")
