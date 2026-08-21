@@ -88,6 +88,28 @@ def records_from_streams(streams: list[TokenStream]) -> list[RequestRecord]:
     ]
 
 
+def cached_tokens_from_output(obj, prompt_tokens: int) -> int:
+    """Prefix-cache hits from an engine's own result object.
+
+    Engines report this in different places and the difference is invisible in
+    the output: reading the wrong one gives 0, which is indistinguishable from
+    a cache that is switched off. That happened on first contact -- vLLM 0.27
+    exposes `num_cached_tokens` as a direct attribute of `RequestOutput`, while
+    `metrics` carries only timing, so reading `metrics` reported a 0% hit rate
+    on a workload whose cache was in fact working perfectly.
+
+    So: look in every place an engine is known to put it, and treat "found
+    nowhere" as absent rather than as zero hits.
+    """
+    for key in CACHED_TOKEN_KEYS:
+        value = getattr(obj, key, None)
+        if value:
+            return min(int(value), prompt_tokens)
+
+    meta = obj if isinstance(obj, dict) else getattr(obj, "meta_info", None)
+    return cached_tokens_from_usage(meta, prompt_tokens)
+
+
 def cached_tokens_from_usage(usage: dict | None, prompt_tokens: int) -> int:
     """Prefix-cache hits, read from the engine rather than inferred.
 

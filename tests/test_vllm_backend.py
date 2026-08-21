@@ -195,3 +195,65 @@ def test_cache_hit_rate_is_reported_from_the_records():
     spec = WorkloadSpec(n_requests=8, prompt_tokens=1000, output_tokens=4)
     records = FakeClient(cached_frac=0.3).send(generate(spec))
     assert summarize(records).prefix_cache_hit_rate == pytest.approx(0.3, abs=0.01)
+
+
+# ------------------------------------------- the field-location regression
+# vLLM 0.27 puts num_cached_tokens on RequestOutput itself; `metrics` holds only
+# timing. Reading `metrics` returned 0, which is indistinguishable in the output
+# from a cache that is switched off — and it produced a 0% hit rate on a
+# workload whose cache was demonstrably working.
+
+
+class FakeVLLMOutput:
+    """Shaped like vLLM 0.27's RequestOutput: the count is a direct attribute."""
+
+    def __init__(self, cached):
+        self.num_cached_tokens = cached
+        self.metrics = type("Stats", (), {"num_generation_tokens": 4})()
+
+
+class FakeSGLangChunk(dict):
+    """SGLang puts it inside meta_info."""
+
+
+def test_cached_tokens_read_from_a_direct_attribute():
+    from lis.serving.client import cached_tokens_from_output
+
+    assert cached_tokens_from_output(FakeVLLMOutput(592), 1024) == 592
+
+
+def test_timing_only_metrics_do_not_masquerade_as_zero_hits():
+    """The exact first-contact bug: metrics exists but carries no cache field."""
+    from lis.serving.client import cached_tokens_from_output
+
+    out = FakeVLLMOutput(592)
+    assert not hasattr(out.metrics, "num_cached_tokens")
+    assert cached_tokens_from_output(out, 1024) == 592
+
+
+def test_cached_tokens_read_from_a_nested_meta_info():
+    from lis.serving.client import cached_tokens_from_output
+
+    assert cached_tokens_from_output({"cached_tokens": 300}, 1024) == 300
+
+
+def test_no_cache_field_anywhere_reads_as_zero():
+    from lis.serving.client import cached_tokens_from_output
+
+    assert cached_tokens_from_output(object(), 1024) == 0
+
+
+def test_the_client_reuses_one_event_loop_across_runs():
+    """asyncio.run() closes its loop on return, which orphans the background
+    tasks of an engine cached across calls -- the second sweep point then fails
+    with EngineDeadError. One loop per client is what makes a sweep possible at
+    all; the alternative reloads the model per point."""
+    from lis.serving.sglang_backend import SGLangClient
+    from lis.serving.vllm_backend import VLLMClient
+
+    for cls in (VLLMClient, SGLangClient):
+        c = cls()
+        first = c.loop()
+        assert c.loop() is first, f"{cls.__name__} made a second loop"
+        assert not first.is_closed()
+        c.close()

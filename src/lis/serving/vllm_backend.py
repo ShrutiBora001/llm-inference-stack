@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from ..workload import Request, Workload
 from .client import (
     TokenStream,
+    cached_tokens_from_output,
     cached_tokens_from_usage,
     pace_arrivals,
     records_from_streams,
@@ -45,7 +46,8 @@ from .client import (
 
 __all__ = [
     "TokenStream", "VLLMClient", "available", "cached_tokens_from_usage",
-    "make_client", "pace_arrivals", "records_from_streams",
+    "cached_tokens_from_output", "make_client", "pace_arrivals",
+    "records_from_streams",
     "request_intervals", "sample_block_table",
 ]
 
@@ -95,6 +97,28 @@ class VLLMClient:
     enable_prefix_caching: bool = True
     max_model_len: int | None = None
     _engine: object = field(default=None, repr=False)
+    _loop: object = field(default=None, repr=False)
+
+    def loop(self):
+        """One event loop for the client's whole lifetime.
+
+        `asyncio.run()` creates a fresh loop and closes it on return. The engine
+        is cached across runs and its background output handler is bound to the
+        loop that created it, so a second `asyncio.run()` finds a dead engine
+        and raises EngineDeadError. Reconstructing the engine per run instead
+        would reload the model every time -- minutes per sweep point.
+        """
+        import asyncio
+
+        if self._loop is None or self._loop.is_closed():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+        return self._loop
+
+    def close(self) -> None:
+        if self._loop is not None and not self._loop.is_closed():
+            self._loop.close()
+        self._loop = None
 
     def engine(self):
         """Construct the engine on first use.
@@ -121,9 +145,7 @@ class VLLMClient:
 
     def send(self, workload: Workload) -> list[RequestRecord]:
         """Run the whole workload and return one record per request."""
-        import asyncio
-
-        return records_from_streams(asyncio.run(self._run(workload)))
+        return records_from_streams(self.loop().run_until_complete(self._run(workload)))
 
     async def _run(self, workload: Workload) -> list[TokenStream]:
         import asyncio
@@ -172,9 +194,7 @@ class VLLMClient:
                 first = now
             if emitted > 0:
                 last = now
-            cached = cached_tokens_from_usage(
-                getattr(out, "metrics", None) and out.metrics.__dict__, req.prompt_len
-            ) or cached
+            cached = cached_tokens_from_output(out, req.prompt_len) or cached
 
         if first is None or last is None:
             raise RuntimeError(

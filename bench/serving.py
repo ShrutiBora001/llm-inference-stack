@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from lis.metrics import SLO, RequestRecord, summarize  # noqa: E402
-from lis.workload import WorkloadSpec, generate, sweep  # noqa: E402
+from lis.workload import WorkloadSpec, generate, generate_local, sweep  # noqa: E402
 
 # Runnable today. The crossover finding -- where SGLang's RadixAttention
 # overtakes vLLM as prefixes become more shared -- needs no context parallelism
@@ -80,7 +80,24 @@ def build_client(framework: str):
         ) from exc
 
 
-def run_one(client, spec: WorkloadSpec, slo: SLO) -> dict:
+def make_workload(spec: WorkloadSpec, source: str):
+    """Choose the request generator explicitly.
+
+    `local` gives exact control of the independent variable -- tests pin
+    realized prefix share to the requested value -- which is what a crossover
+    *location* depends on. `vllm` drives vLLM's own samplers, which buys
+    comparability of absolute throughput against published vLLM benchmarks but
+    does not parameterize prefix share as a clean sweep.
+
+    Explicit rather than automatic: `generate()` prefers vLLM whenever it is
+    importable, so on a box with vLLM installed the generator would change
+    underneath the benchmark without the command line saying so. Every results
+    row records which was used.
+    """
+    return generate_local(spec) if source == "local" else generate(spec)
+
+
+def run_one(client, spec: WorkloadSpec, slo: SLO, source: str = "local") -> dict:
     """One (framework, prefix_share) cell.
 
     The run duration comes from the records themselves, not from a wall clock
@@ -88,7 +105,7 @@ def run_one(client, spec: WorkloadSpec, slo: SLO) -> dict:
     excludes engine startup and teardown. Timing the call instead would fold
     warmup into throughput and make a slow-loading engine look like a slow one.
     """
-    workload = generate(spec)
+    workload = make_workload(spec, source)
     records: list[RequestRecord] = list(client.send(workload))
     summary = summarize(records, slo=slo)
 
@@ -157,7 +174,7 @@ def dry_run(args) -> int:
     """
     print(f"{'prefix_share':>13}  {'realized':>9}  {'requests':>8}  {'prompt tok':>11}  source")
     for spec in specs_for(args):
-        w = generate(spec)
+        w = make_workload(spec, args.workload)
         total = sum(r.prompt_len for r in w.requests)
         print(f"{spec.prefix_share:13.2f}  {w.realized_prefix_share():9.3f}  "
               f"{len(w.requests):8d}  {total:11d}  {w.source}")
@@ -177,6 +194,8 @@ def main() -> int:
     p.add_argument("--requests", type=int, default=64)
     p.add_argument("--input-len", type=int, default=8192)
     p.add_argument("--output-len", type=int, default=128)
+    p.add_argument("--workload", choices=("local", "vllm"), default="local",
+                   help="request generator; recorded in every results row")
     p.add_argument("--qps", type=float, default=4.0)
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--ttft-p99-ms", type=float, default=2000.0)
@@ -201,7 +220,7 @@ def main() -> int:
         for framework in args.frameworks:
             client = build_client(framework)
             for spec in specs_for(args):
-                row = run_one(client, spec, slo)
+                row = run_one(client, spec, slo, args.workload)
                 fh.write(json.dumps(row) + "\n")
                 fh.flush()
                 rows.append(row)

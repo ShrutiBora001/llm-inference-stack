@@ -45,7 +45,7 @@ from ..metrics import RequestRecord
 from ..workload import Workload
 from .client import (
     TokenStream,
-    cached_tokens_from_usage,
+    cached_tokens_from_output,
     pace_arrivals,
     records_from_streams,
 )
@@ -85,6 +85,26 @@ class SGLangClient:
     tp_size: int = 1
     disable_radix_cache: bool = False
     _engine: object = field(default=None, repr=False)
+    _loop: object = field(default=None, repr=False)
+
+    def loop(self):
+        """One event loop for the client's lifetime -- see the vLLM binding.
+
+        `asyncio.run()` closes its loop on return, orphaning a cached engine's
+        background tasks. Fixed here pre-emptively rather than after paying for
+        a second session to discover the same thing twice.
+        """
+        import asyncio
+
+        if self._loop is None or self._loop.is_closed():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+        return self._loop
+
+    def close(self) -> None:
+        if self._loop is not None and not self._loop.is_closed():
+            self._loop.close()
+        self._loop = None
 
     def engine(self):
         """Construct the engine on first use.
@@ -108,9 +128,7 @@ class SGLangClient:
         return self._engine
 
     def send(self, workload: Workload) -> list[RequestRecord]:
-        import asyncio
-
-        return records_from_streams(asyncio.run(self._run(workload)))
+        return records_from_streams(self.loop().run_until_complete(self._run(workload)))
 
     async def _run(self, workload: Workload) -> list[TokenStream]:
         import asyncio
@@ -154,7 +172,7 @@ class SGLangClient:
             if first is None:
                 first = now
             last = now
-            cached = cached_tokens_from_usage(meta, req.prompt_len) or cached
+            cached = cached_tokens_from_output(meta, req.prompt_len) or cached
 
         if first is None or last is None:
             raise RuntimeError(
