@@ -171,7 +171,7 @@ def serving_figdir(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.mark.parametrize("name", ["S1_ttft", "S2_goodput", "S3_percentiles",
+@pytest.mark.parametrize("name", ["S2_goodput", "S3_percentiles",
                                   "S4_crossover", "S5_memory"])
 def test_serving_figures_draw_from_representative_rows(name, serving_figdir):
     """Each S figure must survive contact with data shaped like real output."""
@@ -179,6 +179,22 @@ def test_serving_figures_draw_from_representative_rows(name, serving_figdir):
     path = make_figures.BUILDERS[name](rows)
     assert path is not None and path.exists()
     assert path.stat().st_size > 1000, f"{name} produced an empty image"
+
+
+def test_s1_refuses_a_single_context_length(serving_figdir):
+    """A TTFT-vs-context plot needs more than one context. With one value every
+    point lands on the same x and the result is a vertical smear that reads as
+    a curve -- worse than no figure, because it looks like evidence."""
+    rows = make_figures.load("serving.jsonl")
+    assert len({r["context_len"] for r in rows}) == 1
+    assert make_figures.fig_s1_ttft(rows) is None
+
+
+def test_s1_draws_once_a_context_sweep_exists(serving_figdir):
+    rows = make_figures.load("serving.jsonl")
+    for i, r in enumerate(rows):
+        r["context_len"] = 2048 * (2 ** (i % 4))
+    assert make_figures.fig_s1_ttft(rows) is not None
 
 
 def test_crossover_is_found_at_the_hand_computed_point():

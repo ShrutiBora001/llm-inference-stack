@@ -74,28 +74,28 @@ SPECS: dict[str, FigureSpec] = {
         "Roofline: is the kernel memory-bound or compute-bound",
     ),
     "S1_ttft": FigureSpec(
-        "S1_ttft", "serving.jsonl",
+        "S1_ttft", "serving_saturated.jsonl",
         ("framework", "context_len", "ttft_p99_ms", "slo_ttft_ms"),
         "TTFT vs context length, against the SLO",
     ),
     "S2_goodput": FigureSpec(
-        "S2_goodput", "serving.jsonl",
-        ("framework", "concurrency", "throughput_rps", "goodput_rps"),
-        "Throughput AND goodput vs concurrency -- throughput alone misleads",
+        "S2_goodput", "serving_saturated.jsonl",
+        ("framework", "prefix_share_realized", "throughput_rps", "goodput_rps"),
+        "Throughput AND goodput -- the gap is served-but-too-slow",
     ),
     "S3_percentiles": FigureSpec(
-        "S3_percentiles", "serving.jsonl",
+        "S3_percentiles", "serving_saturated.jsonl",
         ("framework", "ttft_p50_ms", "ttft_p99_ms", "tpot_p99_ms", "slo_tpot_ms"),
         "Latency percentiles against the SLO lines",
     ),
     "S4_crossover": FigureSpec(
-        "S4_crossover", "serving.jsonl",
+        "S4_crossover", "serving_saturated.jsonl",
         ("framework", "prefix_share_realized", "throughput_rps",
          "prefix_cache_hit_rate"),
         "THE HEADLINE: where RadixAttention overtakes vLLM as prefixes are shared",
     ),
     "S5_memory": FigureSpec(
-        "S5_memory", "serving.jsonl",
+        "S5_memory", "serving_saturated.jsonl",
         ("framework", "context_len", "peak_memory_bytes"),
         "Peak KV memory vs context -- the memory argument",
     ),
@@ -260,6 +260,15 @@ def fig_s1_ttft(rows: list[dict]) -> Path | None:
     if not series:
         return None
 
+    # A "TTFT vs context" plot needs more than one context. With a single value
+    # every point lands on one x and the result is a vertical smear that reads
+    # as a curve. Skipping is the honest output; the sweep that would fill this
+    # in has not been run.
+    if len({r["context_len"] for r in rows}) < 2:
+        print("  skip S1_ttft: only one context length in the data — "
+              "a TTFT-vs-context curve needs a context sweep")
+        return None
+
     fig, ax = plt.subplots(figsize=(6.4, 4.0))
     for name, rs in series.items():
         ax.plot([r["context_len"] for r in rs], [r["ttft_p99_ms"] for r in rs],
@@ -297,19 +306,19 @@ def fig_s2_goodput(rows: list[dict]) -> Path | None:
     system served but served too slowly to count. A throughput curve alone hides
     that entirely, and hides it *most* exactly where load is highest.
     """
-    series = by_framework(rows, "concurrency")
+    series = by_framework(rows, "prefix_share_realized")
     if not series:
         return None
 
     fig, ax = plt.subplots(figsize=(6.4, 4.0))
     for name, rs in series.items():
-        x = [r["concurrency"] for r in rs]
+        x = [r["prefix_share_realized"] for r in rs]
         ax.plot(x, [r["throughput_rps"] for r in rs], "o--", color=fcolor(name),
                 alpha=0.45, label=f"{name} throughput")
         ax.plot(x, [r["goodput_rps"] for r in rs], "o-", color=fcolor(name),
                 label=f"{name} goodput")
 
-    ax.set_xlabel("concurrent requests")
+    ax.set_xlabel("realized prefix share")
     ax.set_ylabel("requests / s")
     ax.set_title("S2 — goodput is the solid line; the gap is served-but-too-slow",
                  loc="left")
