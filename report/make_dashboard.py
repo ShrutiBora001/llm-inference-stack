@@ -138,6 +138,9 @@ function table(rows, cols) {
   return d;
 }
 
+const FW_COLOR = __FW_COLORS__;
+const fcolor = f => FW_COLOR[f] || "var(--muted)";
+
 const kernel = DATA["kernel.jsonl"] || [];
 if (!kernel.length) {
   section("Kernel", "MFU and roofline per backend.",
@@ -157,6 +160,64 @@ if (!kernel.length) {
       ["ms", r=>r.ms.toFixed(3)],
     ]));
 }
+
+/* ------------------------------------------------------- serving */
+const serving = DATA["serving.jsonl"] || [];
+if (!serving.length) {
+  section("Serving", "Prefix-share crossover, goodput, and cache hit rate.",
+    empty("No results/serving.jsonl. Run bench/serving.py on a GPU box "
+        + "(see docs/PHASE2_SESSION.md — the ungated study needs one A100)."));
+} else {
+  /* S4, the headline: throughput against how much of each prompt is shared.
+     x is the REALIZED share, not the requested one - a sampler that ignored
+     the request would otherwise give a confident curve on a fictional axis. */
+  const byFw = {};
+  serving.forEach(r => (byFw[r.framework] ??= []).push(r));
+  Object.values(byFw).forEach(rs =>
+    rs.sort((a,b) => a.prefix_share_realized - b.prefix_share_realized));
+
+  const W=880,H=340,P={t:16,r:16,b:44,l:60};
+  const ymax = Math.max(...serving.map(r => r.throughput_rps)) * 1.15;
+  const px = v => P.l + v*(W-P.l-P.r);
+  const py = v => H-P.b - (v/ymax)*(H-P.t-P.b);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">`;
+  g += `<line x1="${P.l}" y1="${H-P.b}" x2="${W-P.r}" y2="${H-P.b}" stroke="var(--line)"/>`;
+  g += `<line x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${H-P.b}" stroke="var(--line)"/>`;
+  for (let i=0;i<=4;i++){ const v=ymax*i/4;
+    g += `<line x1="${P.l}" y1="${py(v)}" x2="${W-P.r}" y2="${py(v)}" stroke="var(--line)" opacity=".5"/>`;
+    g += `<text x="${P.l-8}" y="${py(v)+4}" text-anchor="end" font-size="10" fill="var(--muted)">${v.toFixed(1)}</text>`; }
+  [0,0.25,0.5,0.75,1].forEach(v => {
+    g += `<text x="${px(v)}" y="${H-P.b+16}" text-anchor="middle" font-size="10" fill="var(--muted)">${v}</text>`; });
+  for (const [fw, rs] of Object.entries(byFw)) {
+    g += `<polyline fill="none" stroke="${fcolor(fw)}" stroke-width="2" points="${
+      rs.map(r=>`${px(r.prefix_share_realized)},${py(r.throughput_rps)}`).join(" ")}"/>`;
+    rs.forEach(r => { g += `<circle cx="${px(r.prefix_share_realized)}" cy="${py(r.throughput_rps)}" r="4" fill="${fcolor(fw)}">
+      <title>${fw} · share ${r.prefix_share_realized.toFixed(2)} · ${r.throughput_rps.toFixed(2)} req/s · cache ${(r.prefix_cache_hit_rate*100).toFixed(0)}%</title></circle>`; });
+  }
+  g += `<text x="${W/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">realized prefix share</text>`;
+  g += `<text transform="translate(14,${H/2}) rotate(-90)" text-anchor="middle" font-size="11" fill="var(--muted)">throughput (req/s)</text></svg>`;
+
+  const legend = Object.keys(byFw).map(f =>
+    `<label><span style="color:${fcolor(f)}">■</span> ${f}</label>`).join("");
+  const d = document.createElement("div");
+  d.className = "wrap"; d.innerHTML = legend + g;
+  section("S4 — where prefix caching starts paying",
+    "Throughput against how much of each prompt is shared. At share 0 there is "
+    + "nothing to cache; the crossing is the finding.", d);
+
+  section("Goodput vs throughput",
+    "Goodput counts only requests meeting both SLOs. The gap is requests served "
+    + "too slowly to count — a throughput column alone hides it.",
+    table(serving, [
+      ["framework", r=>r.framework],
+      ["share", r=>r.prefix_share_realized.toFixed(2)],
+      ["throughput", r=>r.throughput_rps.toFixed(2)],
+      ["goodput", r=>`<span class="${r.goodput_rps>=r.throughput_rps*0.99?"gate":"miss"}">${r.goodput_rps.toFixed(2)}</span>`],
+      ["SLO met", r=>(r.slo_attainment*100).toFixed(0)+"%"],
+      ["cache hit", r=>(r.prefix_cache_hit_rate*100).toFixed(0)+"%"],
+      ["TTFT p99", r=>r.ttft_p99_ms.toFixed(0)+" ms"],
+    ]));
+}
 </script>
 """
 
@@ -170,8 +231,11 @@ def main() -> None:
             if "mfu" in r:
                 r["mfu_pct"] = r["mfu"] * 100
 
+    from make_figures import FRAMEWORK_COLORS
+
     html = (TEMPLATE
             .replace("__DATA__", json.dumps(data))
+            .replace("__FW_COLORS__", json.dumps(FRAMEWORK_COLORS))
             .replace("__MFU_GATE__", repr(MFU_GATE)))
     OUT.write_text(html)
 

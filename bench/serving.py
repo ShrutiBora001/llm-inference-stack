@@ -100,8 +100,41 @@ def run_one(client, spec: WorkloadSpec, slo: SLO) -> dict:
         "prefix_share_requested": spec.prefix_share,
         "prefix_share_realized": workload.realized_prefix_share(),
         "workload_source": workload.source,
+        # The independent variables. Without these in the row, a figure plotting
+        # against context length or concurrency would have to hardcode them,
+        # which is exactly what design rule 4 forbids -- and a hardcoded x-axis
+        # silently mislabels every point if the sweep parameters ever change.
+        "context_len": spec.prompt_tokens,
+        "output_len": spec.output_tokens,
+        "concurrency": spec.n_requests,
+        "qps": spec.qps,
+        # The thresholds the SLO bars are drawn against. Recorded per row so a
+        # results file always carries the policy its attainment was judged by;
+        # otherwise a later SLO change would silently redraw old data.
+        "slo_ttft_ms": slo.ttft_p99_ms,
+        "slo_tpot_ms": slo.tpot_p99_ms,
+        # Peak device memory, when the binding can report it. Optional because
+        # not every engine exposes it, and a missing value must read as absent
+        # rather than as zero.
+        "peak_memory_bytes": _peak_memory(client),
     })
     return row
+
+
+def _peak_memory(client) -> float | None:
+    """Peak device memory for the run, if the binding can report it.
+
+    Returns None rather than 0 when unavailable: zero is a measurement, absence
+    is not, and S5 must not plot a flat line at the origin for an engine that
+    simply did not tell us.
+    """
+    hook = getattr(client, "peak_memory_bytes", None)
+    if hook is None:
+        return None
+    try:
+        return float(hook())
+    except Exception:
+        return None
 
 
 def specs_for(args) -> list[WorkloadSpec]:
