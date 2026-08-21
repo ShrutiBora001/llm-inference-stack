@@ -47,9 +47,15 @@ class ModelGeometry:
 
 
 MODELS = {
-    # Values below are from memory and are NOT verified. Run with
-    # --verify-from <path-to-config.json> on the box, or edit after checking
-    # the model card.
+    # Verified against the published config.json: 28 layers, 12 attention heads,
+    # 2 KV heads (GQA), hidden 1536 -> head_dim 128, max_position_embeddings
+    # 131072. Apache 2.0 and ungated, which matters: the Llama configs are
+    # gated, so using one would require an HF token on a rented box.
+    "qwen2.5-1.5b": ModelGeometry(
+        "Qwen/Qwen2.5-1.5B", 1.54, 28, 2, 128, verified=True
+    ),
+    # NOT verified -- config.json returns 401 without accepting the licence.
+    # Kept for comparison only; do not size a rental from these.
     "llama-3.2-1b": ModelGeometry("meta-llama/Llama-3.2-1B", 1.24, 16, 8, 64),
     "llama-3.1-8b": ModelGeometry("meta-llama/Llama-3.1-8B", 8.03, 32, 8, 128),
 }
@@ -61,7 +67,7 @@ USABLE = 0.85  # allocator overhead + fragmentation, same figure as upstream
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--model", default="llama-3.2-1b", choices=sorted(MODELS))
+    p.add_argument("--model", default="qwen2.5-1.5b", choices=sorted(MODELS))
     p.add_argument("--requests", type=int, default=64)
     p.add_argument("--input-len", type=int, default=8192)
     p.add_argument("--output-len", type=int, default=128)
@@ -80,7 +86,9 @@ def main() -> None:
     gpus_needed = max(1, -(-int(total_bytes) // int(A100_40GB * USABLE)))
 
     print(f"MODEL  {m.name}")
-    if not m.verified:
+    if m.verified:
+        print("       geometry verified against the published config.json")
+    else:
         print("       !! geometry NOT verified against the model card. "
               "n_kv_heads is the one that matters (GQA vs MHA = 4x).")
     print(f"       {m.layers} layers, {m.n_kv_heads} kv heads, head_dim {m.head_dim}")

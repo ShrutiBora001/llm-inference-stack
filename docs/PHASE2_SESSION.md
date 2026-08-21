@@ -12,9 +12,8 @@ however many GPUs the KV cache requires, and with a 1B model that is one.
 
 | Configuration | KV at peak | Total | GPUs | Cost |
 |---|---|---|---|---|
-| 1B @ 8K × 64 concurrent | 16.2 GiB | 18.6 GiB | **1** | **$1.09** |
-| 1B @ 32K × 64 | 64.2 GiB | 66.6 GiB | 2 | $2.18 |
-| 1B @ 128K × 16 | 64.1 GiB | 66.4 GiB | 2 | $1.90 |
+| **1.5B @ 8K × 64 concurrent** | 14.2 GiB | 17.1 GiB | **1** | **$1.09** |
+| 1.5B @ 32K × 64 | 56.2 GiB | 59.1 GiB | 2 | $2.18 |
 | 8B @ 32K × 64 | 257.0 GiB | 272.0 GiB | 8 | $8.73 |
 
 An earlier estimate in conversation put this at $15–30. That was a guess, and
@@ -70,17 +69,34 @@ the whole harness — workload generation, both bindings, the reduction path,
 the figures — on the cheapest possible hardware before B pays 4× per hour for
 the same bugs.
 
-## The one number to verify before renting
+## The model: Qwen2.5-1.5B, verified
 
-`scripts/size_session.py` prints a warning because the model geometry is from
-memory, not from the model card:
+Settled, and changed from the plan's Llama-3.2-1B for two reasons.
 
-```
-llama-3.2-1b: 16 layers, 8 kv heads, head_dim 64  ->  32.0 KiB/token
-```
+**It is ungated.** `meta-llama/Llama-3.2-1B/config.json` returns **HTTP 401**
+without accepting the licence, so the geometry could not be confirmed — and,
+more importantly, using it would require putting a Hugging Face token on a
+rented box. That is a credential on a machine someone else operates, for no
+benefit.
 
-`n_kv_heads` is the one that matters. Llama-3.2-1B uses grouped-query attention,
-so `n_kv_heads` (8) is well below `n_heads` (32). If that were wrong and the
-model were MHA, KV per token would be **4× larger** and the 1-GPU conclusion
-would collapse into a 4-GPU one. Check `config.json` before committing to a
-listing — it is a thirty-second check that decides the whole rental.
+**Its geometry is confirmed from the published config**, so the memory
+arithmetic driving this whole estimate is not a guess:
+
+| | |
+|---|---|
+| layers | 28 |
+| attention heads | 12 |
+| **KV heads** | **2** (GQA) |
+| head_dim | 128 (hidden 1536 / 12) |
+| max_position_embeddings | **131072** |
+| licence | Apache 2.0, ungated |
+
+`KV per token = 2 × 28 × 2 × 128 × 2 bytes = 28.0 KiB`
+
+`n_kv_heads` is the input that matters: at 2 rather than 12 it is a 6× smaller
+KV cache than MHA would give. Get that wrong and the 1-GPU conclusion becomes a
+multi-GPU one.
+
+The 128K native context is a bonus the plan wanted and Llama-3.2-1B would also
+have provided — it means long-context runs need no RoPE scaling, so a TTFT curve
+out to 128K measures the system rather than an extrapolation hack.

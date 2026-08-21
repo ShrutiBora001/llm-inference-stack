@@ -53,7 +53,7 @@ __all__ = [
 # small model reaches *longer* context on the same hardware -- roughly 1M tokens
 # on 4x40GB versus ~256K for an 8B. That is directly on-message for a
 # context-parallelism study and makes a ~70-run sweep affordable.
-DEFAULT_MODEL = os.environ.get("LIS_MODEL", "meta-llama/Llama-3.2-1B")
+DEFAULT_MODEL = os.environ.get("LIS_MODEL", "Qwen/Qwen2.5-1.5B")
 
 
 def available() -> bool:

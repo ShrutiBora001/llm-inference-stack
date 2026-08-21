@@ -50,7 +50,7 @@ from .client import (
     records_from_streams,
 )
 
-DEFAULT_MODEL = os.environ.get("LIS_MODEL", "meta-llama/Llama-3.2-1B")
+DEFAULT_MODEL = os.environ.get("LIS_MODEL", "Qwen/Qwen2.5-1.5B")
 
 # Configurations that require prefill CP on CUDA, which does not exist upstream.
 CP_CONFIGS = ("sglang-zigzag", "sglang-contiguous")
