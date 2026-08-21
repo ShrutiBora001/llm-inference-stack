@@ -54,6 +54,13 @@ MODELS = {
     "qwen2.5-1.5b": ModelGeometry(
         "Qwen/Qwen2.5-1.5B", 1.54, 28, 2, 128, verified=True
     ),
+    # Newer, verified, and worse for this study: 8 KV heads instead of 2 makes
+    # the KV cache 4x larger, and the native context is 40960 rather than
+    # 131072. Newer is not automatically better when the study is about memory
+    # and long context.
+    "qwen3-1.7b": ModelGeometry(
+        "Qwen/Qwen3-1.7B", 1.72, 28, 8, 128, verified=True
+    ),
     # NOT verified -- config.json returns 401 without accepting the licence.
     # Kept for comparison only; do not size a rental from these.
     "llama-3.2-1b": ModelGeometry("meta-llama/Llama-3.2-1B", 1.24, 16, 8, 64),

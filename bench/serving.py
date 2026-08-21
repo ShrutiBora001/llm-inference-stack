@@ -44,7 +44,12 @@ FRAMEWORKS = (
 # than reporting them as a typo.
 GATED_FRAMEWORKS = ("sglang-zigzag", "sglang-contiguous")
 
-PREFIX_SHARES = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0)
+# 0 to 1 in steps of 0.05. Wider than it looks necessary on purpose: each extra
+# point costs about 40 seconds of measurement now, while coming back for it
+# later costs a fresh 40-minute install. The crossover location is the headline
+# number, and a coarse sweep can straddle it -- interpolating across a 0.25-wide
+# gap reports a point that was never near a measurement.
+PREFIX_SHARES = tuple(round(i * 0.05, 2) for i in range(21))
 
 
 def build_client(framework: str):

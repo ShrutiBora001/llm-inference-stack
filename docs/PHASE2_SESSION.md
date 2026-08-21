@@ -55,9 +55,15 @@ three consequences worth acting on:
 
 So there are two sensible sessions:
 
-**Session A — the crossover, 1× A100, ~$1.** `sglang` vs `sglang-no-cache` vs
-`vllm`, sweeping prefix share. Produces the headline S4 figure and the
-cache-hit-rate curve. Nothing here is blocked.
+**Session A — the crossover, 1× A100, ~$1.35.** `sglang` vs `sglang-no-cache`
+vs `vllm`, sweeping prefix share across 21 points. Produces the headline S4
+figure and the cache-hit-rate curve. Nothing here is blocked.
+
+`vllm-dcp` is **not** in Session A: decode context parallelism needs at least
+two devices, so it cannot run on one GPU. It belongs to Session B.
+
+Sized concretely: 63 runs, 116 minutes including an 1.8x allowance for
+first-contact fixes, of which 24 minutes is measurement.
 
 **Session B — the CP arms, 2–4× A100.** Adds `vllm-dcp`, and the zigzag layout
 comparison if the port lands. Worth combining with re-measuring the upstream
