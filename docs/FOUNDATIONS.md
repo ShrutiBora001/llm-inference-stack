@@ -107,28 +107,40 @@ explanation.
 
 ---
 
-## Unit 3 — Triton, and the kernel that gates the project
-**4 evenings · ~$4 · 1× A100**
+## Unit 3 — Triton, by reading a validated kernel
+**4 evenings · ~$2 · 1× A100**
 
-1. Work the official Triton tutorials `01` → `06`, in order, on the GPU.
+`triton_flash.py` is compiled, correct against the unfused oracle, autotuned,
+and measured: **38.6% MFU at seq=16384**, clearing the 20% gate. `torch_flash`
+reaches 58.8% at the same shape and remains the default fused path. Phase 1 is
+closed — see `results/triton_validation.json`.
+
+That makes this unit better, not redundant. You are not debugging a kernel into
+existence; you are reading a working one and explaining a 20-point gap, which is
+the harder and more transferable skill.
+
+1. Work the official Triton tutorials `01` → `06`, in order.
    `03-matrix-multiplication` should feel familiar after Unit 2.
-   `06-fused-attention` is the closest published relative of our kernel.
-2. Diff `06-fused-attention` against `src/lis/kernels/triton_flash.py`. Ours has
-   never compiled — expect real bugs, not typos.
-3. Compile it. Fix it. Validate against `backend="unfused"`, never against
-   `torch_flash` — the oracle chain has to stay rooted outside the thing under
-   test.
-4. Run the sweep:
+2. Read `src/lis/kernels/triton_flash.py` line by line against tutorial `06`.
+   Every difference is a decision someone made. Find them.
+3. **The exercise:** why does ours reach 38.6% where `torch_flash` reaches
+   58.8%? Form a hypothesis *before* profiling — candidates are tile sizes,
+   `num_stages` and software pipelining, the causal-mask skip granularity, and
+   whether the epilogue is fused. Then settle it with `ncu`, using what Unit 1
+   taught you.
+4. Test the hypothesis: change one thing, re-run `make bench-kernel`, compare.
 
 ```bash
 make bench-kernel && make report
 ```
 
-**Checkpoint:** the kernel either clears the 20% MFU gate or it does not. Both
-are results. Not knowing is the only failure.
+**Checkpoint:** account for the gap with evidence from a profiler, not a guess.
+If you can close any part of it, that is a genuine result and belongs in the
+report.
 
-**Deliverable:** Phase 1 exit criteria, met. This is the single blocker on
-everything downstream.
+**Deliverable:** either a faster kernel or a documented explanation of why
+`torch_flash` wins — both are publishable, and the second is the honest outcome
+most of the time.
 
 ---
 
@@ -169,10 +181,10 @@ the measured 156.5 GB/s rather than NVLink's 300 GB/s spec.
 | 0 · mental model | 2 | none | $0 | everything |
 | 1 · profiling | 2 | none | $0 | figure K4 |
 | 2 · execution model | 4 | 1× | ~$4 | Unit 3 |
-| 3 · Triton | 4 | 1× | ~$4 | **Phase 1 exit** |
+| 3 · Triton | 4 | 1× | ~$2 | closing the 38.6% → 58.8% gap |
 | 4 · collectives | 2 | 2–4× | ~$2 | contract suite |
 
-**~14 evenings, ~$10.** Units 0 and 1 are free and worth doing this week
+**~14 evenings, ~$8.** Units 0 and 1 are free and worth doing this week
 regardless of when GPU time happens.
 
 Rent one GPU for Units 2 and 3 back to back in a single session — the setup cost

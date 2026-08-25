@@ -42,7 +42,7 @@ small delta on the previous.
 | 7 ★ | Milakov & Gimelshein, **Online normalizer calculation for softmax** (arXiv:1805.02867) | 8 pages, and it is the whole trick. The running-max rescaling in `SoftmaxState.block_update` is Algorithm 3 verbatim |
 | 8 | Rabe & Staats, **Self-attention Does Not Need O(n²) Memory** (arXiv:2112.05682) | that online softmax makes attention **order-invariant**, which is the property that licenses the ring to fold blocks in *rank* order rather than *sequence* order |
 | 9 ★ | Dao et al., **FlashAttention** (arXiv:2205.14135) | tiling + IO-awareness. Our `tiled_attention` has FlashAttention's memory profile and numerics but not its speed — this paper is the gap |
-| 10 | Dao, **FlashAttention-2** (arXiv:2307.08691) | work partitioning and the causal-mask skip. §3.1 is what `triton_flash.py` implements |
+| 10 | Dao, **FlashAttention-2** (arXiv:2307.08691) | work partitioning and the causal-mask skip. §3.1 is what `triton_flash.py` implements — and §3.2's work partitioning is the leading suspect for its 20-point gap behind `torch_flash` |
 | 11 | Su et al., **RoFormer** (arXiv:2104.09864) | RoPE. §3.4.2 is why `rope.py` must use **global** positions — under striping a device owns two disjoint position ranges, and local positions fail silently |
 
 **Checkpoint:** derive the LSE merge — `lse_ab = logaddexp(lse_a, lse_b)` — on
@@ -101,7 +101,7 @@ the parts you need.
 
 | # | Read | Explains |
 |---|---|---|
-| 25 | **Triton tutorials**, especially `06-fused-attention.py` | the closest published relative of `triton_flash.py`. Diff ours against it before debugging ours |
+| 25 | **Triton tutorials**, especially `06-fused-attention.py` | the closest published relative of `triton_flash.py`. Ours is validated at 38.6% MFU; diff the two to explain why `torch_flash` still wins at 58.8% |
 | 26 | Tillet, Kung & Cox, **Triton** (MAPL 2019) | the block-level programming model, and why the autotuner matters — `test_triton_autotuner_selects_a_nondefault_config` fails if it is not exploring |
 | 27 | Hwu, Kirk & El Hajj, **Programming Massively Parallel Processors** (4th ed.), ch. 1–6 | the only entry here that is a book. Occupancy, coalescing, shared memory. Needed for Phase 3's persistent kernel |
 | 28 | **NVIDIA Ampere (A100) architecture whitepaper** | 108 SMs, 312 TFLOP/s dense bf16, 1.55 TB/s HBM, NVLink 3 — every constant in `dattn/profiles.py` |
