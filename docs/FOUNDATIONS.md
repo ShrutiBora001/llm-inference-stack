@@ -5,10 +5,10 @@ A build-first path to the basics this project assumes. Five units, roughly
 
 The premise: you already have the lab. A course's value is mostly its
 assignments, and this repo contains better ones than most courses set — an
-unanalyzed `nsys` trace, a kernel that has never been compiled, and a
-communication model with no measurement behind it yet. Every exercise below
-produces something the project needs, so studying and unblocking Phase 1 are the
-same activity.
+unanalyzed `nsys` trace, a validated Triton kernel running 20 points behind
+`torch_flash` with no explanation on record, and a communication model with no
+measurement behind it. Every exercise below produces something the project
+still needs.
 
 **Rule for all five units: predict the number before you measure it.** Write the
 prediction down. The gap between your prediction and the measurement is the
