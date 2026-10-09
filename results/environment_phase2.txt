@@ -1,0 +1,7 @@
+name, memory.total [MiB], driver_version
+NVIDIA A100-SXM4-40GB, 40960 MiB, 590.48.01
+---
+sglang 0.5.9
+torch 2.9.1+cu128
+vllm 0.27.1 (torch 2.13.0+cu130) - uninstalled after its sweeps, disk limit
+model Qwen/Qwen2.5-1.5B

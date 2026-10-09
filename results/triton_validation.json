@@ -1,0 +1,282 @@
+{
+  "steps": {
+    "environment": {
+      "ok": true,
+      "seconds": 0.179188946262002
+    },
+    "compile at the smallest shape": {
+      "ok": true,
+      "seconds": 4.558327028527856
+    },
+    "correctness vs the unfused oracle": {
+      "ok": true,
+      "seconds": 8.188178518787026
+    },
+    "lse merge contract": {
+      "ok": true,
+      "seconds": 7.936280617490411
+    },
+    "autotuner explored the space": {
+      "ok": true,
+      "seconds": 4.146405782550573
+    },
+    "MFU against the gate": {
+      "ok": true,
+      "seconds": 82.09047818556428
+    }
+  },
+  "device": "NVIDIA A100-SXM4-40GB",
+  "capability": "sm_80",
+  "triton": "3.7.1",
+  "torch": "2.13.0+cu130",
+  "max_abs_error": 0.008480072021484375,
+  "autotune": {
+    "sq64_sk64_d64_causal0": {
+      "config": "BLOCK_M: 64, BLOCK_N: 64, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None",
+      "chosen_index": 6
+    },
+    "sq256_sk256_d64_causal0": {
+      "config": "BLOCK_M: 64, BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None",
+      "chosen_index": 1
+    },
+    "sq256_sk256_d64_causal1": {
+      "config": "BLOCK_M: 64, BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None",
+      "chosen_index": 1
+    },
+    "sq512_sk512_d64_causal1": {
+      "config": "BLOCK_M: 64, BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None",
+      "chosen_index": 1
+    },
+    "sq512_sk256_d64_causal1": {
+      "config": "BLOCK_M: 64, BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None",
+      "chosen_index": 1
+    },
+    "sq2048_sk2048_d64_causal1": {
+      "config": "BLOCK_M: 64, BLOCK_N: 64, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None",
+      "chosen_index": 7
+    }
+  },
+  "mfu_rows": [
+    {
+      "backend": "unfused",
+      "seq": 2048,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 7.634943962097168,
+      "min_ms": 7.618559837341309,
+      "elements": 2228224,
+      "flops": 36507222016,
+      "tflops": 4.7815965902613105,
+      "mfu": 0.01532563009699138,
+      "arithmetic_intensity": 21.76,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "unfused",
+      "seq": 4096,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 29.881343841552734,
+      "min_ms": 29.863935470581055,
+      "elements": 8650752,
+      "flops": 141733920768,
+      "tflops": 4.743224452004266,
+      "mfu": 0.015202642474372646,
+      "arithmetic_intensity": 21.551020408163264,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "unfused",
+      "seq": 8192,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 117.70572662353516,
+      "min_ms": 117.61766052246094,
+      "elements": 34078720,
+      "flops": 558345748480,
+      "tflops": 4.743573354470583,
+      "mfu": 0.01520376075150828,
+      "arithmetic_intensity": 21.443298969072163,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "torch_flash",
+      "seq": 2048,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 0.3317759931087494,
+      "min_ms": 0.3256320059299469,
+      "elements": 2228224,
+      "flops": 36507222016,
+      "tflops": 110.03575537194963,
+      "mfu": 0.3526787031152232,
+      "arithmetic_intensity": 544.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "torch_flash",
+      "seq": 4096,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 0.9082880020141602,
+      "min_ms": 0.8765439987182617,
+      "elements": 8650752,
+      "flops": 141733920768,
+      "tflops": 156.04513155926327,
+      "mfu": 0.5001446524335361,
+      "arithmetic_intensity": 1056.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "torch_flash",
+      "seq": 8192,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 3.052544116973877,
+      "min_ms": 2.9849600791931152,
+      "elements": 34078720,
+      "flops": 558345748480,
+      "tflops": 182.91160654330298,
+      "mfu": 0.5862551491772532,
+      "arithmetic_intensity": 2080.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "torch_flash",
+      "seq": 16384,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 12.07091236114502,
+      "min_ms": 11.990015983581543,
+      "elements": 135266304,
+      "flops": 2216203124736,
+      "tflops": 183.598642623711,
+      "mfu": 0.5884571878965096,
+      "arithmetic_intensity": 4128.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "triton",
+      "seq": 2048,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 0.5109760165214539,
+      "min_ms": 0.5007359981536865,
+      "elements": 2228224,
+      "flops": 36507222016,
+      "tflops": 71.44605781016575,
+      "mfu": 0.22899377503258256,
+      "arithmetic_intensity": 544.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "triton",
+      "seq": 4096,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 1.4254080057144165,
+      "min_ms": 1.4223359823226929,
+      "elements": 8650752,
+      "flops": 141733920768,
+      "tflops": 99.4339306358552,
+      "mfu": 0.31869849562774105,
+      "arithmetic_intensity": 1056.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "triton",
+      "seq": 8192,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 4.91315221786499,
+      "min_ms": 4.911104202270508,
+      "elements": 34078720,
+      "flops": 558345748480,
+      "tflops": 113.64307957929077,
+      "mfu": 0.364240639677214,
+      "arithmetic_intensity": 2080.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    },
+    {
+      "backend": "triton",
+      "seq": 16384,
+      "heads": 32,
+      "head_dim": 128,
+      "causal": true,
+      "dtype": "torch.bfloat16",
+      "device": "cuda",
+      "median_ms": 18.41152000427246,
+      "min_ms": 18.391040802001953,
+      "elements": 135266304,
+      "flops": 2216203124736,
+      "tflops": 120.3704595938696,
+      "mfu": 0.3858027551085564,
+      "arithmetic_intensity": 4128.0,
+      "peak_tflops": 312.0,
+      "profile": "a100-40gb"
+    }
+  ],
+  "triton_best_mfu": 0.3858027551085564,
+  "gate": 0.2,
+  "comparisons": {
+    "torch_flash": {
+      "seq": 16384,
+      "triton_mfu": 0.3858027551085564,
+      "other_mfu": 0.5884571878965096,
+      "ratio": 0.6556173720770431
+    },
+    "unfused": {
+      "seq": 8192,
+      "triton_mfu": 0.364240639677214,
+      "other_mfu": 0.01520376075150828,
+      "ratio": 23.957272521608164
+    }
+  },
+  "incomplete": {
+    "unfused": [
+      16384
+    ]
+  },
+  "decision": "triton clears the gate at 38.6% and is validated, but torch_flash is faster at every matched shape (58.8% vs 38.6% @ seq=16384). KEEP PREFERENCE as is; torch_flash stays the default fused path.",
+  "all_passed": true
+}

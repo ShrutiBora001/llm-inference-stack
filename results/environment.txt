@@ -1,0 +1,7 @@
+name, memory.total [MiB], driver_version, clocks.max.sm [MHz], power.limit [W]
+NVIDIA A100-SXM4-40GB, 40960 MiB, 595.71.05, 1410 MHz, 350.00 W
+---
+torch 2.13.0+cu130
+cuda 13.0
+triton 3.7.1
+capability sm_80

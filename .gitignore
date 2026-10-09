@@ -3,7 +3,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 *.egg-info/
-results/
+# results/ holds the evidence. It is committed deliberately: every figure and
+# every table regenerates from these files, so a fabricated number would
+# disagree with its own figure. Only large binaries are excluded.
+results/*.nsys-rep
+results/*.ncu-rep
 *.nsys-rep
 *.ncu-rep
 report/dashboard.html

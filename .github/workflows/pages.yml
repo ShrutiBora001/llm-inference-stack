@@ -1,0 +1,67 @@
+# Publish the results dashboard to GitHub Pages.
+#
+# This doubles as the project's strongest reproducibility check: the site is
+# built by deleting report/figures/ and regenerating everything from the
+# committed results/*.jsonl. If a number were ever typed rather than measured,
+# the deploy is where it would surface.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["results/**", "report/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A queued deploy should supersede an older one, but never cancel a deploy
+# that is already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The report path deliberately depends on nothing but matplotlib and
+      # lis.metrics -- no torch, no CUDA, no upstream package. Rebuilding the
+      # figures must not require the hardware that produced them.
+      - name: Install the plotting dependencies only
+        run: pip install "matplotlib>=3.8"
+
+      - name: Rebuild every figure and the dashboard from results/
+        run: make report
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/figures
+          cp report/dashboard.html _site/index.html
+          cp report/figures/*.png _site/figures/
+          cp -r results _site/results
+          echo "built $(date -u +%FT%TZ) from $GITHUB_SHA" > _site/BUILD
+          ls -la _site _site/figures
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

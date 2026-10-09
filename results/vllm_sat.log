@@ -1,0 +1,31 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+(EngineCore pid=6379) Loading safetensors checkpoint shards:   0% Completed | 0/1 [00:00<?, ?it/s]
+(EngineCore pid=6379) Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00,  1.41it/s]
+(EngineCore pid=6379) Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00,  1.41it/s]
+(EngineCore pid=6379) 
+(EngineCore pid=6379) Capturing CUDA graphs (PIECEWISE):   0%|          | 0/35 [00:00<?, ?it/s]Capturing CUDA graphs (PIECEWISE):   9%|▊         | 3/35 [00:00<00:01, 24.78it/s]Capturing CUDA graphs (PIECEWISE):  20%|██        | 7/35 [00:00<00:00, 28.17it/s]Capturing CUDA graphs (PIECEWISE):  31%|███▏      | 11/35 [00:00<00:00, 30.04it/s]Capturing CUDA graphs (PIECEWISE):  43%|████▎     | 15/35 [00:00<00:00, 30.98it/s]Capturing CUDA graphs (PIECEWISE):  54%|█████▍    | 19/35 [00:00<00:00, 30.37it/s]Capturing CUDA graphs (PIECEWISE):  66%|██████▌   | 23/35 [00:00<00:00, 30.04it/s]Capturing CUDA graphs (PIECEWISE):  77%|███████▋  | 27/35 [00:00<00:00, 29.80it/s]Capturing CUDA graphs (PIECEWISE):  86%|████████▌ | 30/35 [00:01<00:00, 28.22it/s]Capturing CUDA graphs (PIECEWISE):  94%|█████████▍| 33/35 [00:01<00:00, 28.55it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 35/35 [00:01<00:00, 28.96it/s]
+(EngineCore pid=6379) Capturing CUDA graphs (FULL):   0%|          | 0/19 [00:00<?, ?it/s]Capturing CUDA graphs (FULL):  21%|██        | 4/19 [00:00<00:00, 36.91it/s]Capturing CUDA graphs (FULL):  42%|████▏     | 8/19 [00:00<00:00, 36.14it/s]Capturing CUDA graphs (FULL):  63%|██████▎   | 12/19 [00:00<00:00, 37.08it/s]Capturing CUDA graphs (FULL):  84%|████████▍ | 16/19 [00:00<00:00, 37.61it/s]Capturing CUDA graphs (FULL): 100%|██████████| 19/19 [00:00<00:00, 37.52it/s]
+vllm                 prefix_share=0.00  goodput=0.00 req/s  throughput=3.58  TTFT p99=16738 ms  cache 0%  SLO 0%
+vllm                 prefix_share=0.05  goodput=0.00 req/s  throughput=3.69  TTFT p99=16190 ms  cache 5%  SLO 0%
+vllm                 prefix_share=0.10  goodput=0.00 req/s  throughput=3.80  TTFT p99=15660 ms  cache 10%  SLO 0%
+vllm                 prefix_share=0.15  goodput=0.00 req/s  throughput=3.95  TTFT p99=15064 ms  cache 15%  SLO 0%
+vllm                 prefix_share=0.20  goodput=0.00 req/s  throughput=4.12  TTFT p99=14360 ms  cache 20%  SLO 0%
+vllm                 prefix_share=0.25  goodput=0.00 req/s  throughput=4.31  TTFT p99=13650 ms  cache 25%  SLO 0%
+vllm                 prefix_share=0.30  goodput=0.00 req/s  throughput=4.51  TTFT p99=13014 ms  cache 30%  SLO 0%
+vllm                 prefix_share=0.35  goodput=0.00 req/s  throughput=4.74  TTFT p99=12302 ms  cache 35%  SLO 0%
+vllm                 prefix_share=0.40  goodput=0.00 req/s  throughput=5.05  TTFT p99=11494 ms  cache 40%  SLO 0%
+vllm                 prefix_share=0.45  goodput=0.00 req/s  throughput=5.39  TTFT p99=10660 ms  cache 45%  SLO 0%
+vllm                 prefix_share=0.50  goodput=0.00 req/s  throughput=5.81  TTFT p99=9755 ms  cache 50%  SLO 0%
+vllm                 prefix_share=0.55  goodput=0.00 req/s  throughput=6.33  TTFT p99=8812 ms  cache 55%  SLO 0%
+vllm                 prefix_share=0.60  goodput=0.00 req/s  throughput=6.96  TTFT p99=7844 ms  cache 60%  SLO 0%
+vllm                 prefix_share=0.65  goodput=0.84 req/s  throughput=7.72  TTFT p99=6963 ms  cache 65%  SLO 11%
+vllm                 prefix_share=0.70  goodput=2.87 req/s  throughput=8.73  TTFT p99=5953 ms  cache 70%  SLO 33%
+vllm                 prefix_share=0.75  goodput=4.38 req/s  throughput=10.00  TTFT p99=5010 ms  cache 75%  SLO 44%
+vllm                 prefix_share=0.80  goodput=6.20 req/s  throughput=11.67  TTFT p99=4056 ms  cache 80%  SLO 53%
+vllm                 prefix_share=0.85  goodput=9.42 req/s  throughput=14.03  TTFT p99=3082 ms  cache 85%  SLO 67%
+vllm                 prefix_share=0.90  goodput=17.27 req/s  throughput=18.11  TTFT p99=2068 ms  cache 90%  SLO 95%
+vllm                 prefix_share=0.95  goodput=24.86 req/s  throughput=24.86  TTFT p99=1120 ms  cache 95%  SLO 100%
+vllm                 prefix_share=1.00  goodput=33.32 req/s  throughput=33.32  TTFT p99=712 ms  cache 100%  SLO 100%
+
+appended 21 rows to results/serving_saturated.jsonl
+best goodput: 33.32 req/s (vllm @ prefix_share=1.00)

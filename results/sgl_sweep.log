@@ -1,0 +1,48 @@
+=== sglang (saturated) ===
+sglang               prefix_share=0.00  goodput=0.00 req/s  throughput=4.44  TTFT p99=11901 ms  cache 0%  SLO 0%
+sglang               prefix_share=0.05  goodput=0.00 req/s  throughput=4.89  TTFT p99=10699 ms  cache 5%  SLO 0%
+sglang               prefix_share=0.10  goodput=0.00 req/s  throughput=5.11  TTFT p99=10306 ms  cache 10%  SLO 0%
+sglang               prefix_share=0.15  goodput=0.00 req/s  throughput=5.31  TTFT p99=9850 ms  cache 15%  SLO 0%
+sglang               prefix_share=0.20  goodput=0.00 req/s  throughput=5.55  TTFT p99=9385 ms  cache 20%  SLO 0%
+sglang               prefix_share=0.25  goodput=0.00 req/s  throughput=5.75  TTFT p99=9003 ms  cache 25%  SLO 0%
+sglang               prefix_share=0.30  goodput=0.00 req/s  throughput=6.08  TTFT p99=8468 ms  cache 30%  SLO 0%
+sglang               prefix_share=0.35  goodput=0.00 req/s  throughput=6.43  TTFT p99=7956 ms  cache 35%  SLO 0%
+sglang               prefix_share=0.40  goodput=0.00 req/s  throughput=6.83  TTFT p99=7331 ms  cache 40%  SLO 0%
+sglang               prefix_share=0.45  goodput=0.00 req/s  throughput=7.26  TTFT p99=6788 ms  cache 45%  SLO 0%
+sglang               prefix_share=0.50  goodput=0.12 req/s  throughput=7.74  TTFT p99=6185 ms  cache 50%  SLO 2%
+sglang               prefix_share=0.55  goodput=1.04 req/s  throughput=8.32  TTFT p99=5663 ms  cache 55%  SLO 12%
+sglang               prefix_share=0.60  goodput=2.08 req/s  throughput=8.89  TTFT p99=5099 ms  cache 60%  SLO 23%
+sglang               prefix_share=0.65  goodput=3.10 req/s  throughput=9.46  TTFT p99=4522 ms  cache 65%  SLO 33%
+sglang               prefix_share=0.70  goodput=5.41 req/s  throughput=10.81  TTFT p99=3901 ms  cache 70%  SLO 50%
+sglang               prefix_share=0.75  goodput=7.19 req/s  throughput=12.10  TTFT p99=3278 ms  cache 75%  SLO 59%
+sglang               prefix_share=0.80  goodput=9.44 req/s  throughput=13.43  TTFT p99=2632 ms  cache 80%  SLO 70%
+sglang               prefix_share=0.85  goodput=14.33 req/s  throughput=15.55  TTFT p99=2014 ms  cache 85%  SLO 92%
+sglang               prefix_share=0.90  goodput=18.87 req/s  throughput=18.87  TTFT p99=1377 ms  cache 90%  SLO 100%
+sglang               prefix_share=0.95  goodput=23.12 req/s  throughput=23.12  TTFT p99=755 ms  cache 94%  SLO 100%
+sglang               prefix_share=1.00  goodput=28.77 req/s  throughput=28.77  TTFT p99=265 ms  cache 99%  SLO 100%
+appended 21 rows to results/serving_saturated.jsonl
+best goodput: 28.77 req/s (sglang @ prefix_share=1.00)
+=== sglang-no-cache (saturated) ===
+sglang-no-cache      prefix_share=0.00  goodput=0.00 req/s  throughput=4.57  TTFT p99=11697 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.05  goodput=0.00 req/s  throughput=4.78  TTFT p99=11100 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.10  goodput=0.00 req/s  throughput=4.76  TTFT p99=11150 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.15  goodput=0.00 req/s  throughput=4.74  TTFT p99=11185 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.20  goodput=0.00 req/s  throughput=4.70  TTFT p99=11241 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.25  goodput=0.00 req/s  throughput=4.70  TTFT p99=11303 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.30  goodput=0.00 req/s  throughput=4.69  TTFT p99=11319 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.35  goodput=0.00 req/s  throughput=4.67  TTFT p99=11360 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.40  goodput=0.00 req/s  throughput=4.63  TTFT p99=11431 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.45  goodput=0.00 req/s  throughput=4.57  TTFT p99=11566 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.50  goodput=0.00 req/s  throughput=4.63  TTFT p99=11491 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.55  goodput=0.00 req/s  throughput=4.57  TTFT p99=11612 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.60  goodput=0.00 req/s  throughput=4.58  TTFT p99=11635 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.65  goodput=0.00 req/s  throughput=4.54  TTFT p99=11709 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.70  goodput=0.00 req/s  throughput=4.52  TTFT p99=11646 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.75  goodput=0.00 req/s  throughput=4.57  TTFT p99=11655 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.80  goodput=0.00 req/s  throughput=4.60  TTFT p99=11572 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.85  goodput=0.00 req/s  throughput=4.55  TTFT p99=11691 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.90  goodput=0.00 req/s  throughput=4.59  TTFT p99=11588 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=0.95  goodput=0.00 req/s  throughput=4.55  TTFT p99=11728 ms  cache 0%  SLO 0%
+sglang-no-cache      prefix_share=1.00  goodput=0.00 req/s  throughput=4.57  TTFT p99=11674 ms  cache 0%  SLO 0%
+appended 21 rows to results/serving_saturated.jsonl
+best goodput: 0.00 req/s (sglang-no-cache @ prefix_share=0.00)

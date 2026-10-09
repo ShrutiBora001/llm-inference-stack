@@ -1,0 +1,44 @@
+# Correctness on every push. No GPU: the entire correctness argument is
+# designed to run on CPU, and GPU-gated checks skip with printed reasons
+# rather than passing vacuously.
+name: ci
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # dattn is the frozen upstream finding, consumed as a dependency rather
+      # than copied. This step requires that repository to be readable by this
+      # workflow; if it is private, CI cannot install it and the run fails
+      # here with a clear message rather than halfway through the suite.
+      - name: Install the upstream finding (dattn)
+        run: |
+          pip install "git+https://github.com/ShrutiBora001/causal-attention-load-imbalance.git@v0.3.0" \
+            || { echo "::error::cannot install dattn - is causal-attention-load-imbalance private?"; exit 1; }
+
+      - name: Install this package
+        run: pip install -e ".[dev]"
+
+      - name: Test suite
+        run: make test
+
+      # -rs prints every skip reason, so a green CPU run is not mistaken for a
+      # validated stack.
+      - name: Anti-decoration contract
+        run: make contract
+
+      - name: Figures regenerate from committed results
+        run: make report

@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+rootdir: /workspace/lis
+configfile: pyproject.toml
+plugins: typeguard-4.4.4, anyio-4.12.1, hypothesis-6.130.8, flakefinder-1.1.0, rerunfailures-16.1, shard-0.1.2, xdist-3.8.0, xdoctest-1.0.2
+collected 204 items
+Running 204 items in this shard
+
+tests/test_bench_comm.py .....                                           [  2%]
+tests/test_bench_kernel.py .........                                     [  6%]
+tests/test_bench_serving.py ........                                     [ 10%]
+tests/test_contract.py .....ss..ssssss.                                  [ 18%]
+tests/test_cp_ring.py sssssss..                                          [ 23%]
+tests/test_figures.py ..........                                         [ 27%]
+tests/test_kernels.py .....s...................                          [ 40%]
+tests/test_lse.py ................                                       [ 48%]
+tests/test_metrics.py ..........................                         [ 60%]
+tests/test_paging.py ..........................                          [ 73%]
+tests/test_rope.py .............................                         [ 87%]
+tests/test_workload.py .........................                         [100%]
+
+=============================== warnings summary ===============================
+tests/test_contract.py: 14 warnings
+  /workspace/lis/.venv/lib/python3.12/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================ 188 passed, 16 skipped, 14 warnings in 34.09s =================
