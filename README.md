@@ -9,10 +9,11 @@ vLLM** instead of asserting it.
 ![measured on](https://img.shields.io/badge/measured%20on-A100--SXM4--40GB-76b900)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
+**[→ Live results dashboard](https://shrutibora001.github.io/llm-inference-stack/)** — rebuilt
+from `results/` on every push, so it cannot disagree with the figures below.
+
 <!-- Add once causal-attention-load-imbalance is public, so CI can install dattn:
 [![ci](https://github.com/ShrutiBora001/llm-inference-stack/actions/workflows/ci.yml/badge.svg)](https://github.com/ShrutiBora001/llm-inference-stack/actions/workflows/ci.yml)
-And once Pages is enabled (Settings -> Pages -> Source: GitHub Actions):
-**[Live results dashboard](https://shrutibora001.github.io/llm-inference-stack/)**
 -->
 
 ## Measured results
