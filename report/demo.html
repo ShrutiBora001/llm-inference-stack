@@ -1,102 +1,168 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>llm-inference-stack — interactive demo</title>
+<title>llm-inference-stack — simulations</title>
 <style>
   :root {
     --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#e2e2e2; --panel:#fafafa;
     --problem:#c44e52; --fix:#4c72b0; --accent:#55a868; --third:#dd8452;
+    --idle:#d8d8d8;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#16181c; --fg:#e8e8e8; --muted:#9aa0a6; --line:#2c2f36; --panel:#1c1f24; }
+    :root { --bg:#16181c; --fg:#e8e8e8; --muted:#9aa0a6; --line:#2c2f36;
+            --panel:#1c1f24; --idle:#33373f; }
   }
   * { box-sizing:border-box; }
   body { background:var(--bg); color:var(--fg); margin:0; padding:2rem 1rem;
          font:15px/1.6 ui-sans-serif,-apple-system,"Segoe UI",sans-serif; }
-  main { max-width:900px; margin:0 auto; }
+  main { max-width:940px; margin:0 auto; }
   h1 { font-size:1.5rem; margin:0 0 .3rem; }
-  h2 { font-size:1.05rem; margin:0 0 .2rem; }
-  .sub { color:var(--muted); margin:0 0 2rem; }
-  .note { color:var(--muted); font-size:.87rem; margin:.1rem 0 1.2rem; }
+  h2 { font-size:1.08rem; margin:0 0 .2rem; }
+  .sub { color:var(--muted); margin:0 0 1.6rem; }
+  .note { color:var(--muted); font-size:.87rem; margin:.1rem 0 1.1rem; }
   section { border-top:1px solid var(--line); padding:1.6rem 0; }
-  .controls { display:flex; flex-wrap:wrap; gap:1.2rem; align-items:center; margin:0 0 1.2rem; }
+  .controls { display:flex; flex-wrap:wrap; gap:1rem; align-items:center; margin:0 0 1.1rem; }
   label { font-size:.87rem; color:var(--muted); display:flex; align-items:center; gap:.5rem; }
-  input[type=range] { width:190px; accent-color:var(--fix); }
-  button { font:inherit; font-size:.87rem; padding:.3rem .8rem; cursor:pointer;
+  input[type=range] { width:170px; accent-color:var(--fix); }
+  button { font:inherit; font-size:.87rem; padding:.38rem .95rem; cursor:pointer;
            background:var(--panel); color:var(--fg);
            border:1px solid var(--line); border-radius:6px; }
-  button[aria-pressed=true] { border-color:var(--fix); color:var(--fix); font-weight:600; }
-  .seg { display:inline-flex; gap:.4rem; }
-  .readout { display:flex; flex-wrap:wrap; gap:.6rem; margin:1rem 0 0; }
+  button.go { border-color:var(--fix); color:var(--fix); font-weight:600; }
+  button:disabled { opacity:.45; cursor:default; }
+
+  .race { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media (max-width:680px) { .race { grid-template-columns:1fr; } }
+  .lane { border:1px solid var(--line); border-radius:10px; padding:.85rem .9rem;
+          background:var(--panel); }
+  .lane.win { border-color:var(--accent); }
+  .lane h3 { margin:0 0 .1rem; font-size:.95rem; display:flex; justify-content:space-between;
+             align-items:baseline; gap:.5rem; }
+  .clock { font-variant-numeric:tabular-nums; font-size:1.35rem; font-weight:600; }
+  .lane .cap { font-size:.78rem; color:var(--muted); margin:0 0 .7rem; }
+  .dev { display:grid; grid-template-columns:28px 1fr; gap:.45rem;
+         align-items:center; margin-bottom:.3rem; }
+  .dev small { color:var(--muted); font-size:.72rem; font-variant-numeric:tabular-nums; }
+  .track { height:17px; background:var(--bg); border:1px solid var(--line);
+           border-radius:4px; overflow:hidden; display:flex; }
+  .busy { height:100%; transition:width .06s linear; }
+  .waste { height:100%; background:var(--idle); transition:width .06s linear; }
+  .tag { font-size:.72rem; color:var(--muted); margin-top:.5rem;
+         display:flex; justify-content:space-between; }
+  .flag { color:var(--accent); font-weight:600; }
+
+  .readout { display:flex; flex-wrap:wrap; gap:.6rem; margin:1.1rem 0 0; }
   .stat { background:var(--panel); border:1px solid var(--line); border-radius:8px;
-          padding:.55rem .85rem; min-width:116px; }
-  .stat b { display:block; font-size:1.25rem; font-variant-numeric:tabular-nums; }
-  .stat span { font-size:.76rem; color:var(--muted); }
-  .verdict { font-size:1.05rem; padding:.9rem 1rem; border-radius:8px;
-             border:1px solid var(--line); background:var(--panel); margin:1rem 0 0; }
-  svg { display:block; width:100%; height:auto; overflow:visible; }
-  .wrap { overflow-x:auto; }
-  table { border-collapse:collapse; font-size:.85rem; font-variant-numeric:tabular-nums; }
-  th,td { padding:.3rem .65rem; border-bottom:1px solid var(--line); text-align:right; }
-  th:first-child,td:first-child { text-align:left; }
-  th { color:var(--muted); font-weight:600; }
+          padding:.55rem .85rem; min-width:112px; }
+  .stat b { display:block; font-size:1.2rem; font-variant-numeric:tabular-nums; }
+  .stat span { font-size:.75rem; color:var(--muted); }
+
+  .pills { display:flex; flex-wrap:wrap; gap:3px; margin:.6rem 0 0; }
+  .pill { width:11px; height:11px; border-radius:2px; background:var(--bg);
+          border:1px solid var(--line); }
+  .pill.cached { background:var(--accent); border-color:var(--accent); }
+  .pill.done { background:var(--fix); border-color:var(--fix); }
+  .pill.done.v { background:var(--third); border-color:var(--third); }
+
   a { color:var(--fix); }
   footer { color:var(--muted); font-size:.85rem; border-top:1px solid var(--line);
            padding-top:1.2rem; margin-top:1rem; }
+  code { font-size:.86em; }
 </style>
 <main>
-  <h1>Interactive demo</h1>
-  <p class="sub">Two findings you can poke at. The scheduler is computed in your
-     browser from the same rules the library uses; the framework picker reads the
-     committed benchmark results. Nothing here is a recorded animation.</p>
+  <h1>Simulations</h1>
+  <p class="sub">Two things you can watch run, not two charts. The first is a real
+     scheduler executing; the second replays a measured benchmark at the speed it
+     actually ran.</p>
 
+  <!-- ─────────────────────────────────────────────── ring race -->
   <section>
-    <h2>1. Why causal ring attention wastes half the machine</h2>
-    <p class="note">Each cell is the attention work device&nbsp;<i>r</i> does at ring
-       step&nbsp;<i>s</i>. Every step is a synchronisation barrier, so the step costs
-       its <b>slowest</b> device — the dark cell in each row. Switch the layout and
-       watch the dark cells flatten.</p>
+    <h2>1. Watch half a GPU cluster sit idle</h2>
+    <p class="note">Two rings run the same causal attention over the same sequence.
+       <b>Coloured&nbsp;=&nbsp;computing, grey&nbsp;=&nbsp;stalled at the barrier.</b>
+       Every ring step waits for its slowest device, so grey is wall-clock time
+       you paid for and did not use. Left is the obvious sharding; right is the
+       fix. Press play and watch them diverge.</p>
 
     <div class="controls">
       <label>devices <i>P</i>
         <input id="p" type="range" min="2" max="8" step="1" value="4">
         <output id="pOut">4</output>
       </label>
-      <span class="seg">
-        <button id="bContig" aria-pressed="true">contiguous</button>
-        <button id="bStriped" aria-pressed="false">striped (zigzag)</button>
-      </span>
+      <label>speed
+        <input id="spd" type="range" min="1" max="10" step="1" value="5">
+      </label>
+      <button id="play" class="go">▶ Play</button>
+      <button id="reset">Reset</button>
     </div>
 
-    <div class="wrap"><svg id="grid" viewBox="0 0 640 300" role="img"
-         aria-label="work per device per ring step"></svg></div>
+    <div class="race">
+      <div class="lane" id="laneC">
+        <h3><span style="color:var(--problem)">Contiguous</span>
+            <span class="clock" id="clkC">0.00</span></h3>
+        <p class="cap">device <i>r</i> owns chunk <i>r</i></p>
+        <div id="devC"></div>
+        <div class="tag"><span id="stepC">step —</span><span id="wasteC"></span></div>
+      </div>
+      <div class="lane" id="laneS">
+        <h3><span style="color:var(--fix)">Striped (zigzag)</span>
+            <span class="clock" id="clkS">0.00</span></h3>
+        <p class="cap">device <i>r</i> owns chunks <i>r</i> and <i>2P−1−r</i></p>
+        <div id="devS"></div>
+        <div class="tag"><span id="stepS">step —</span><span id="wasteS"></span></div>
+      </div>
+    </div>
 
     <div class="readout" id="ringStats"></div>
-    <p class="note" id="ringExplain"></p>
+    <p class="note" id="ringVerdict"></p>
   </section>
 
+  <!-- ─────────────────────────────────────────────── serving replay -->
   <section>
-    <h2>2. Which framework should you actually use?</h2>
-    <p class="note">Move the slider to your workload's shared-prefix fraction.
-       The answer flips at 0.915 — which is why a single benchmark point picks
-       the wrong framework about half the time.</p>
+    <h2>2. Replay the benchmark: 64 requests, two engines</h2>
+    <p class="note">Each square is one of 64 concurrent requests.
+       <b style="color:var(--accent)">Green</b> = its prompt prefix was served from
+       cache instead of recomputed. The engines run at the <b>throughput actually
+       measured</b> at this prefix share, so whichever finishes first is the one
+       that won on the A100 — this is a replay of
+       <code>results/serving_saturated.jsonl</code>, not a live model.</p>
 
     <div class="controls">
       <label>shared prefix
         <input id="share" type="range" min="0" max="100" step="5" value="50">
         <output id="shareOut">50%</output>
       </label>
+      <button id="play2" class="go">▶ Run</button>
+      <button id="reset2">Reset</button>
     </div>
 
-    <div id="verdict" class="verdict">loading measured results…</div>
+    <div class="race">
+      <div class="lane" id="laneG">
+        <h3><span style="color:var(--fix)">SGLang</span>
+            <span class="clock" id="clkG">0.0s</span></h3>
+        <p class="cap">RadixAttention prefix cache</p>
+        <div class="track" style="height:22px"><div class="busy" id="barG"
+             style="background:var(--fix);width:0"></div></div>
+        <div class="pills" id="pillG"></div>
+        <div class="tag"><span id="tpsG">—</span><span id="hitG"></span></div>
+      </div>
+      <div class="lane" id="laneV">
+        <h3><span style="color:var(--third)">vLLM</span>
+            <span class="clock" id="clkV">0.0s</span></h3>
+        <p class="cap">PagedAttention + continuous batching</p>
+        <div class="track" style="height:22px"><div class="busy" id="barV"
+             style="background:var(--third);width:0"></div></div>
+        <div class="pills" id="pillV"></div>
+        <div class="tag"><span id="tpsV">—</span><span id="hitV"></span></div>
+      </div>
+    </div>
+
     <div class="readout" id="servStats"></div>
-    <div class="wrap" style="margin-top:1rem"><svg id="curve" viewBox="0 0 640 280"
-         role="img" aria-label="throughput versus shared prefix"></svg></div>
+    <p class="note" id="servVerdict">loading measured results…</p>
   </section>
 
   <footer>
-    Measured on 1× A100-SXM4-40GB · Qwen2.5-1.5B · 8K context · 64 concurrent.
-    <a href="./">Full dashboard</a> ·
+    Measured on 1× A100-SXM4-40GB · Qwen2.5-1.5B · 8K context · 128 output tokens ·
+    64 concurrent. <a href="./">Results dashboard</a> ·
     <a href="https://github.com/ShrutiBora001/llm-inference-stack">Source &amp; method</a>
   </footer>
 </main>
@@ -104,219 +170,268 @@
 <script>
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp01 = x => Math.max(0, Math.min(1, x));
 
-/* ---------------------------------------------------------------- panel 1
-   The scheduler, computed rather than illustrated. `work` is the causal rule:
-   a key chunk strictly before the query chunk is a full block, the diagonal is
-   half, anything later is skipped entirely. Striping gives device r chunks r
-   and 2P-1-r, which pairs each cheap front chunk with an expensive back one. */
+/* ══════════════════════════════════════════ 1. the ring, actually scheduled
+   Causal rule, same as the library: a key chunk strictly before the query chunk
+   is a full block, the diagonal is half, anything later is skipped. Striping
+   gives device r chunks r and 2P-1-r, pairing a cheap front chunk with an
+   expensive back one. Step cost is max over devices because the ring exchange
+   is a barrier -- that max is the whole finding. */
 const work = (q, k) => k < q ? 1 : (k === q ? 0.5 : 0);
 
-function simulate(P, striped) {
+function schedule(P, striped) {
   const own = r => striped ? [r, 2 * P - 1 - r] : [r];
-  const scale = striped ? 4 : 1;   // a striped chunk is half as long, so its block is 1/4
-  const grid = [];
+  const scale = striped ? 4 : 1;        // striped chunks are half as long
+  const steps = [];
   for (let s = 0; s < P; s++) {
-    const row = [];
+    const w = [];
     for (let r = 0; r < P; r++) {
       const src = (r - s + P) % P;
-      let w = 0;
-      for (const q of own(r)) for (const k of own(src)) w += work(q, k);
-      row.push(w / scale);
+      let v = 0;
+      for (const q of own(r)) for (const k of own(src)) v += work(q, k);
+      w.push(v / scale);
     }
-    grid.push(row);
+    steps.push({w, cost: Math.max(...w), start: 0});
   }
-  const perDev = Array.from({length: P}, (_, r) =>
-    grid.reduce((a, row) => a + row[r], 0));
-  const critical = grid.reduce((a, row) => a + Math.max(...row), 0);
-  const mean = perDev.reduce((a, b) => a + b, 0) / P;
-  return {grid, perDev, critical, mean, efficiency: mean / critical};
+  let t = 0;
+  for (const st of steps) { st.start = t; t += st.cost; }
+  const busy = Array.from({length: P}, (_, r) => steps.reduce((a, s) => a + s.w[r], 0));
+  return {steps, total: t, busy, P};
 }
 
-let striped = false;
+let SC, SS, t = 0, running = false, raf = null;
 
-function drawRing() {
+function buildLanes() {
   const P = +$("p").value;
   $("pOut").textContent = P;
-  const me = simulate(P, striped);
-  const ref = simulate(P, false);          // contiguous is always the baseline
-  const colour = striped ? css("--fix") : css("--problem");
+  SC = schedule(P, false);
+  SS = schedule(P, true);
+  renderLaneSkeleton($("devC"), P, css("--problem"));
+  renderLaneSkeleton($("devS"), P, css("--fix"));
+  t = 0; draw();
+}
 
-  // grid
-  const W = 640, cell = Math.min(46, 300 / P), x0 = 92, y0 = 40;
-  const peak = Math.max(...me.grid.flat()) || 1;
-  let g = "";
-  g += `<text x="${x0 - 10}" y="${y0 - 14}" text-anchor="end" font-size="11" fill="${css("--muted")}">step</text>`;
-  for (let r = 0; r < P; r++)
-    g += `<text x="${x0 + r * cell + cell / 2}" y="${y0 - 14}" text-anchor="middle"
-           font-size="11" fill="${css("--muted")}">d${r}</text>`;
-  me.grid.forEach((row, s) => {
-    const slowest = Math.max(...row);
-    g += `<text x="${x0 - 10}" y="${y0 + s * cell + cell / 2 + 4}" text-anchor="end"
-           font-size="11" fill="${css("--muted")}">${s}</text>`;
-    row.forEach((w, r) => {
-      const isSlowest = w === slowest && w > 0;
-      g += `<rect x="${x0 + r * cell}" y="${y0 + s * cell}" width="${cell - 3}" height="${cell - 3}"
-             rx="3" fill="${colour}" opacity="${w === 0 ? 0.07 : 0.2 + 0.8 * w / peak}"
-             stroke="${isSlowest ? colour : "none"}" stroke-width="2"/>`;
-      if (w > 0) g += `<text x="${x0 + r * cell + (cell - 3) / 2}" y="${y0 + s * cell + cell / 2 + 3}"
-             text-anchor="middle" font-size="9.5" fill="${css("--bg")}"
-             font-weight="${isSlowest ? 700 : 400}">${w}</text>`;
-    });
+function renderLaneSkeleton(host, P, colour) {
+  host.innerHTML = Array.from({length: P}, (_, r) => `
+    <div class="dev">
+      <small>d${r}</small>
+      <div class="track">
+        <div class="busy" style="background:${colour};width:0"></div>
+        <div class="waste" style="width:0"></div>
+      </div>
+    </div>`).join("");
+}
+
+/* Paint one lane at simulated time `t`: each device shows how much of the
+   current step it spent computing, and how much it spent waiting. */
+function paint(sim, host, clk, stepLabel, wasteLabel) {
+  const {steps, total, P} = sim;
+  const now = Math.min(t, total);
+  let idx = steps.findIndex(s => now < s.start + s.cost);
+  if (idx === -1) idx = steps.length - 1;
+  const st = steps[idx];
+  const into = clamp01((now - st.start) / (st.cost || 1));
+
+  let wasted = 0;
+  [...host.children].forEach((row, r) => {
+    const [busy, waste] = row.querySelector(".track").children;
+    const w = st.w[r];
+    const frac = st.cost ? w / st.cost : 0;           // share of the step spent busy
+    const b = clamp01(into / (frac || 1e9)) * frac;   // fills, then stops
+    busy.style.width = (b * 100) + "%";
+    waste.style.width = (Math.max(0, into - frac) * 100) + "%";
+    row.querySelector("small").textContent = "d" + r;
   });
-  // per-device totals
-  const by = y0 + P * cell + 26, bh = 44;
-  const maxDev = Math.max(...me.perDev);
-  g += `<text x="${x0 - 10}" y="${by + 14}" text-anchor="end" font-size="11"
-         fill="${css("--muted")}">total</text>`;
-  me.perDev.forEach((v, r) => {
-    const h = Math.max(2, v / maxDev * bh);
-    g += `<rect x="${x0 + r * cell}" y="${by + bh - h}" width="${cell - 3}" height="${h}"
-           rx="2" fill="${colour}"/>`;
-    g += `<text x="${x0 + r * cell + (cell - 3) / 2}" y="${by + bh + 13}" text-anchor="middle"
-           font-size="10" fill="${css("--muted")}">${v}</text>`;
-  });
-  $("grid").setAttribute("viewBox", `0 0 ${W} ${by + bh + 24}`);
-  $("grid").innerHTML = g;
+  for (const s of steps) {
+    const done = clamp01((now - s.start) / (s.cost || 1));
+    for (let r = 0; r < P; r++) wasted += (s.cost - s.w[r]) * done;
+  }
+  clk.textContent = now.toFixed(2);
+  stepLabel.textContent = `step ${Math.min(idx + 1, steps.length)} / ${steps.length}`;
+  wasteLabel.textContent = `${(wasted / (total * P) * 100).toFixed(0)}% device-time idle`;
+  return now >= total;
+}
+
+function draw() {
+  const doneC = paint(SC, $("devC"), $("clkC"), $("stepC"), $("wasteC"));
+  const doneS = paint(SS, $("devS"), $("clkS"), $("stepS"), $("wasteS"));
+
+  // Striped always finishes first for P >= 2, so mark it the moment it lands
+  // and leave it marked -- the point of the race is the gap that follows.
+  $("laneS").classList.toggle("win", doneS);
 
   const stat = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
-  const spread = Math.min(...me.perDev) / Math.max(...me.perDev);
+  const P = SC.P;
   $("ringStats").innerHTML =
-    stat(me.critical.toFixed(2), "critical path (×L²)") +
-    stat((me.efficiency * 100).toFixed(1) + "%", "device efficiency") +
-    stat((spread * 100).toFixed(0) + "%", "min/max per device") +
-    stat((ref.critical / me.critical).toFixed(3) + "×", "vs contiguous");
+    stat(SC.total.toFixed(2), "contiguous wall clock") +
+    stat(SS.total.toFixed(2), "striped wall clock") +
+    stat((SC.total / SS.total).toFixed(3) + "×", "speedup") +
+    stat((2 - 1 / P).toFixed(3) + "×", "predicted 2 − 1/P") +
+    stat((Math.min(...SC.busy) / Math.max(...SC.busy) * 100).toFixed(0) + "%",
+         "contiguous min/max load");
 
-  $("ringExplain").innerHTML = striped
-    ? `Every device does identical work, at every step. Critical path drops from
-       <b>P−½ = ${ref.critical}</b> to <b>P/2 = ${me.critical}</b>, so the predicted
-       speedup is <b>2 − 1/P = ${(2 - 1 / P).toFixed(3)}×</b> — and the measured
-       result on 4× A100 was 1.73×, 99.1% of that ceiling.`
-    : `Device 0 holds the earliest tokens, so it has almost nothing to attend to,
-       while device ${P - 1} does ${me.perDev[P - 1] / me.perDev[0]}× as much. Total work is
-       <b>P/2 = ${me.mean}</b> but the wall clock is the critical path
-       <b>P−½ = ${me.critical}</b>, so efficiency falls toward 50% as devices are added.`;
+  $("ringVerdict").innerHTML = doneS
+    ? `Striped finished in <b>${SS.total}</b> against contiguous's
+       <b>${SC.total}</b> — a <b>${(SC.total / SS.total).toFixed(3)}×</b> speedup,
+       matching the closed form <b>2 − 1/P</b> exactly. On 4× A100 the measured
+       end-to-end result was <b>1.73×</b>, 99.1% of this ceiling. Nothing was
+       made faster: the same work was simply spread so no device waits.`
+    : `Contiguous device&nbsp;0 holds the earliest tokens, so it has almost nothing
+       to attend to and spends most of the run grey. Total work is identical in
+       both lanes — only the <i>distribution</i> differs.`;
+  return doneC && doneS;
 }
 
-$("p").oninput = drawRing;
-$("bContig").onclick = () => { striped = false; sync(); };
-$("bStriped").onclick = () => { striped = true; sync(); };
-function sync() {
-  $("bContig").setAttribute("aria-pressed", String(!striped));
-  $("bStriped").setAttribute("aria-pressed", String(striped));
-  drawRing();
+function tick() {
+  if (!running) return;
+  t += 0.016 * (+$("spd").value / 5) * 0.9;
+  const finished = draw();
+  if (finished) { running = false; $("play").textContent = "▶ Play"; return; }
+  raf = requestAnimationFrame(tick);
 }
-drawRing();
 
-/* ---------------------------------------------------------------- panel 2
-   Reads the committed results rather than hardcoding the curve, so this panel
-   and the published figures cannot disagree. */
-let SERV = null;
+$("play").onclick = () => {
+  if (running) { running = false; $("play").textContent = "▶ Play"; return; }
+  if (t >= Math.max(SC.total, SS.total)) t = 0;
+  running = true; $("play").textContent = "❚❚ Pause"; tick();
+};
+$("reset").onclick = () => { running = false; $("play").textContent = "▶ Play"; t = 0; draw(); };
+$("p").oninput = () => { running = false; $("play").textContent = "▶ Play"; buildLanes(); };
+buildLanes();
 
-function nearest(share) {
+/* ══════════════════════════════════════════ 2. benchmark replay
+   Speeds come from the committed results, so finishing order is the measured
+   finishing order. The only invented quantity is the wall-clock compression. */
+const REQS = 64, OUT_TOK = 128;
+let SERV = null, t2 = 0, running2 = false, raf2 = null;
+
+function row() {
+  if (!SERV) return null;
+  const want = +$("share").value / 100;
   let best = null, bd = Infinity;
-  for (const s of Object.keys(SERV)) {
-    const d = Math.abs(+s - share);
-    if (d < bd) { bd = d; best = s; }
+  for (const k of Object.keys(SERV)) {
+    const d = Math.abs(+k - want);
+    if (d < bd) { bd = d; best = k; }
   }
   return SERV[best];
 }
 
+function buildPills() {
+  const r = row(); if (!r) return;
+  paintPills($("pillG"), r.sglang, false);
+  paintPills($("pillV"), r.vllm, true);
+}
+
+function paintPills(host, rec, isV) {
+  const cached = Math.round(REQS * rec.prefix_cache_hit_rate);
+  host.innerHTML = Array.from({length: REQS}, (_, i) =>
+    `<div class="pill${i < cached ? " cached" : ""}${isV ? " v" : ""}"></div>`).join("");
+}
+
 function drawServing() {
-  const share = +$("share").value / 100;
-  $("shareOut").textContent = (share * 100).toFixed(0) + "%";
-  if (!SERV) return;
+  const r = row();
+  if (!r) return true;
+  const g = r.sglang, v = r.vllm, nc = r["sglang-no-cache"];
+  $("shareOut").textContent = (+$("share").value) + "%";
 
-  const row = nearest(share);
-  const v = row.vllm, g = row.sglang, nc = row["sglang-no-cache"];
-  const win = g.output_throughput_tps >= v.output_throughput_tps ? "SGLang" : "vLLM";
-  const lead = win === "SGLang"
-    ? g.output_throughput_tps / v.output_throughput_tps
-    : v.output_throughput_tps / g.output_throughput_tps;
-  const colour = win === "SGLang" ? css("--fix") : css("--third");
+  const totalTok = REQS * OUT_TOK;
+  const secG = totalTok / g.output_throughput_tps;     // real seconds on the A100
+  const secV = totalTok / v.output_throughput_tps;
+  const span = Math.max(secG, secV);
+  const now = Math.min(t2, span);
 
-  $("verdict").innerHTML =
-    `At <b>${(share * 100).toFixed(0)}%</b> shared prefix, use
-     <b style="color:${colour}">${win}</b> — ${((lead - 1) * 100).toFixed(0)}% more output
-     tokens per second.` +
-    (Math.abs(share - 0.915) < 0.04
-      ? ` <span style="color:${css("--accent")}">You are at the crossover; the two are within noise here.</span>`
-      : "");
+  for (const [sec, bar, clk, tps, pills, rec, isV] of [
+        [secG, $("barG"), $("clkG"), $("tpsG"), $("pillG"), g, false],
+        [secV, $("barV"), $("clkV"), $("tpsV"), $("pillV"), v, true]]) {
+    const frac = clamp01(now / sec);
+    bar.style.width = (frac * 100) + "%";
+    clk.textContent = Math.min(now, sec).toFixed(1) + "s";
+    tps.textContent = `${Math.round(frac * totalTok).toLocaleString()} / ${totalTok.toLocaleString()} tokens`;
+    const cached = Math.round(REQS * rec.prefix_cache_hit_rate);
+    const done = Math.round(frac * REQS);
+    [...pills.children].forEach((p, i) => {
+      p.className = "pill" + (i < cached ? " cached" : "") +
+                    (i < done && i >= cached ? " done" + (isV ? " v" : "") : "");
+    });
+  }
+  $("hitG").textContent = `${(g.prefix_cache_hit_rate * 100).toFixed(0)}% prefix cached`;
+  $("hitV").textContent = `${(v.prefix_cache_hit_rate * 100).toFixed(0)}% prefix cached`;
+
+  const gWins = secG <= secV;
+  $("laneG").classList.toggle("win", now >= span && gWins);
+  $("laneV").classList.toggle("win", now >= span && !gWins);
 
   const stat = (val, l) => `<div class="stat"><b>${val}</b><span>${l}</span></div>`;
   $("servStats").innerHTML =
     stat(Math.round(g.output_throughput_tps), "SGLang tok/s") +
     stat(Math.round(v.output_throughput_tps), "vLLM tok/s") +
-    stat((g.output_throughput_tps / nc.output_throughput_tps).toFixed(2) + "×", "from prefix cache") +
-    stat((g.slo_attainment * 100).toFixed(0) + "%", "SGLang SLO met") +
-    stat(Math.round(g.ttft_p99_ms) + " ms", "SGLang TTFT p99");
+    stat((g.output_throughput_tps / nc.output_throughput_tps).toFixed(2) + "×", "gain from the cache") +
+    stat(Math.round(g.ttft_p99_ms) + " ms", "SGLang TTFT p99") +
+    stat((g.slo_attainment * 100).toFixed(0) + "%", "requests meeting SLO");
 
-  // the curve, with the current position marked
-  const W = 640, H = 280, P = {t:16, r:14, b:40, l:56};
-  const shares = Object.keys(SERV).sort((a, b) => +a - +b);
-  const all = shares.flatMap(k => ["vllm", "sglang", "sglang-no-cache"]
-    .map(f => SERV[k][f]?.output_throughput_tps || 0));
-  const yMax = Math.max(...all) * 1.08;
-  const px = s => P.l + s * (W - P.l - P.r);
-  const py = y => H - P.b - y / yMax * (H - P.t - P.b);
-
-  let o = "";
-  for (let i = 0; i <= 4; i++) {
-    const y = yMax * i / 4;
-    o += `<line x1="${P.l}" y1="${py(y)}" x2="${W - P.r}" y2="${py(y)}"
-           stroke="${css("--line")}"/>`;
-    o += `<text x="${P.l - 8}" y="${py(y) + 4}" text-anchor="end" font-size="10"
-           fill="${css("--muted")}">${Math.round(y)}</text>`;
-  }
-  o += `<line x1="${px(0.915)}" y1="${P.t}" x2="${px(0.915)}" y2="${H - P.b}"
-         stroke="${css("--accent")}" stroke-dasharray="5 4"/>`;
-  o += `<text x="${px(0.915) - 7}" y="${P.t + 12}" text-anchor="end" font-size="10"
-         fill="${css("--accent")}">crossover 0.915</text>`;
-
-  const series = [["sglang", css("--fix"), "SGLang"],
-                  ["vllm", css("--third"), "vLLM"],
-                  ["sglang-no-cache", css("--muted"), "SGLang, cache off"]];
-  for (const [f, c] of series) {
-    const pts = shares.filter(k => SERV[k][f])
-      .map(k => `${px(+k)},${py(SERV[k][f].output_throughput_tps)}`).join(" ");
-    o += `<polyline fill="none" stroke="${c}" stroke-width="2.2" points="${pts}"/>`;
-  }
-  const here = px(+shares.find(k => SERV[k] === row));
-  o += `<circle cx="${here}" cy="${py(g.output_throughput_tps)}" r="5" fill="${css("--fix")}"/>`;
-  o += `<circle cx="${here}" cy="${py(v.output_throughput_tps)}" r="5" fill="${css("--third")}"/>`;
-  series.forEach(([, c, label], i) => {
-    o += `<rect x="${P.l + 8 + i * 150}" y="${P.t}" width="10" height="10" rx="2" fill="${c}"/>`;
-    o += `<text x="${P.l + 23 + i * 150}" y="${P.t + 9}" font-size="10"
-           fill="${css("--muted")}">${label}</text>`;
-  });
-  o += `<text x="${W / 2}" y="${H - 8}" text-anchor="middle" font-size="11"
-         fill="${css("--muted")}">shared prefix fraction</text>`;
-  $("curve").innerHTML = o;
+  const win = gWins ? "SGLang" : "vLLM";
+  const lead = gWins ? secV / secG : secG / secV;
+  $("servVerdict").innerHTML =
+    `At <b>${$("share").value}%</b> shared prefix <b>${win}</b> finishes
+     <b>${((lead - 1) * 100).toFixed(0)}%</b> sooner
+     (${Math.min(secG, secV).toFixed(1)}s vs ${Math.max(secG, secV).toFixed(1)}s).
+     ${+$("share").value >= 95
+       ? `Past a shared prefix of <b>0.915</b> the ranking flips — vLLM's scheduler
+          overtakes the radix tree, so a benchmark run at one workload point picks
+          the wrong engine.`
+       : `Keep dragging: beyond <b>0.915</b> this reverses.`}
+     ${g.slo_attainment === 0
+       ? ` <span style="color:var(--problem)">Note: TTFT p99 is
+           ${Math.round(g.ttft_p99_ms)} ms against a 2000 ms target, so
+           <b>goodput here is zero</b> — every request finishes late despite the
+           healthy token rate.</span>`
+       : ""}`;
+  return now >= span;
 }
 
-$("share").oninput = drawServing;
+function tick2() {
+  if (!running2) return;
+  t2 += 0.016 * 3;                       // 3x real time, so a 20s run reads in 7
+  if (drawServing()) { running2 = false; $("play2").textContent = "▶ Run"; return; }
+  raf2 = requestAnimationFrame(tick2);
+}
+
+$("play2").onclick = () => {
+  if (!SERV) return;
+  if (running2) { running2 = false; $("play2").textContent = "▶ Run"; return; }
+  const r = row();
+  const span = Math.max(REQS * OUT_TOK / r.sglang.output_throughput_tps,
+                        REQS * OUT_TOK / r.vllm.output_throughput_tps);
+  if (t2 >= span) t2 = 0;
+  running2 = true; $("play2").textContent = "❚❚ Pause"; tick2();
+};
+$("reset2").onclick = () => { running2 = false; $("play2").textContent = "▶ Run"; t2 = 0; drawServing(); };
+$("share").oninput = () => {
+  running2 = false; $("play2").textContent = "▶ Run"; t2 = 0;
+  buildPills(); drawServing();
+};
 
 fetch("results/serving_saturated.jsonl")
   .then(r => r.ok ? r.text() : Promise.reject(r.status))
-  .then(t => {
+  .then(txt => {
     SERV = {};
-    for (const line of t.split("\n")) {
+    for (const line of txt.split("\n")) {
       if (!line.trim()) continue;
-      const r = JSON.parse(line);
-      (SERV[r.prefix_share_realized.toFixed(2)] ??= {})[r.framework] = r;
+      const rec = JSON.parse(line);
+      (SERV[rec.prefix_share_realized.toFixed(2)] ??= {})[rec.framework] = rec;
     }
   })
-  // Only the load is caught here. A render error must stay an error: wrapping
-  // drawServing in this catch once disguised a key-type bug as a failed
-  // download, with the stats panel rendering correctly beside the message.
+  // Only the download is caught. A render error must stay an error: wrapping the
+  // draw in this catch once disguised a key-type bug as a failed download.
   .catch(() => {
     SERV = null;
-    $("verdict").innerHTML =
-      `Could not load <code>results/serving_saturated.jsonl</code>. This panel reads
-       the committed benchmark data, so it needs to be served over HTTP —
-       try <code>python -m http.server</code> from the repo root, or use the
+    $("servVerdict").innerHTML =
+      `Could not load <code>results/serving_saturated.jsonl</code>. This panel replays
+       the committed benchmark, so it needs to be served over HTTP — try
+       <code>python -m http.server</code> from the repo root, or use the
        <a href="https://shrutibora001.github.io/llm-inference-stack/demo.html">published
        version</a>.`;
   })
-  .then(() => { if (SERV) drawServing(); });
+  .then(() => { if (SERV) { buildPills(); drawServing(); } });
 </script>
