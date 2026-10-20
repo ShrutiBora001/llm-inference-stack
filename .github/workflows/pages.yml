@@ -46,6 +46,7 @@ jobs:
         run: |
           mkdir -p _site/figures
           cp report/dashboard.html _site/index.html
+          cp report/demo.html _site/demo.html
           cp report/figures/*.png _site/figures/
           cp -r results _site/results
           echo "built $(date -u +%FT%TZ) from $GITHUB_SHA" > _site/BUILD
